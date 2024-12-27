@@ -1,0 +1,32 @@
+[Block(1)]
+package Example begin
+  function fn~global::Example::sum(fp~global::Example::sum::v: t~global::int*, fp~global::Example::sum::n: t~global::int) : t~global::int 
+  begin
+    [Block(6)]
+    declare v~global::Example::sum::@1::s : t~global::int;
+    v~global::Example::sum::@1::s:t~global::int = 0:t~global::int;
+    declare v~global::Example::sum::@1::i : t~global::int;
+    v~global::Example::sum::@1::i:t~global::int = 0:t~global::int;
+    while (v~global::Example::sum::@1::i:t~global::int<fp~global::Example::sum::n:t~global::int) do begin
+      [Block(2)]
+      v~global::Example::sum::@1::s:t~global::int = (v~global::Example::sum::@1::s:t~global::int+(fp~global::Example::sum::v:t~global::int*)[v~global::Example::sum::@1::i:t~global::int]:t~global::int);
+      v~global::Example::sum::@1::i:t~global::int = (v~global::Example::sum::@1::i:t~global::int+1:t~global::int)
+    end;
+    return v~global::Example::sum::@1::s:t~global::int
+  end;
+  function[M] fn~global::Example::sum_multiframe(fp~global::Example::sum_multiframe::v: t~global::int*, fp~global::Example::sum_multiframe::n: t~global::int) : t~global::int 
+  begin
+    [Block(6)]
+    declare v~global::Example::sum_multiframe::@3::s : t~global::int;
+    v~global::Example::sum_multiframe::@3::s:t~global::int = 0:t~global::int;
+    declare v~global::Example::sum_multiframe::@3::i : t~global::int;
+    v~global::Example::sum_multiframe::@3::i:t~global::int = 0:t~global::int;
+    while (v~global::Example::sum_multiframe::@3::i:t~global::int<fp~global::Example::sum_multiframe::n:t~global::int) do begin
+      [Block(3)]
+      v~global::Example::sum_multiframe::@3::s:t~global::int = (v~global::Example::sum_multiframe::@3::s:t~global::int+(fp~global::Example::sum_multiframe::v:t~global::int*)[v~global::Example::sum_multiframe::@3::i:t~global::int]:t~global::int);
+      v~global::Example::sum_multiframe::@3::i:t~global::int = (v~global::Example::sum_multiframe::@3::i:t~global::int+1:t~global::int);
+      suspend
+    end;
+    return v~global::Example::sum_multiframe::@3::s:t~global::int
+  end
+end

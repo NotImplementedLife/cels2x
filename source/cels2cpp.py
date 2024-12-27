@@ -763,7 +763,7 @@ class Cels2CppCompiler:
     def compile(self, code:str):
         ast_root = self.build_ast(code)        
 
-        print(ast_root)
+        #print(ast_root)
         #return ast_root
                 
         res = self.cpp_ctx.build(ast_root)

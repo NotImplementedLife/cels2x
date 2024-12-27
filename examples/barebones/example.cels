@@ -1,0 +1,43 @@
+package Example
+begin
+	/*  Simple array sum v[0]+...+v[n-1].
+		Compiles 1:1 to an equivalent C++ function
+	 */
+	function sum(v:int*, n:int):int 
+	begin
+		var s=0;
+		var i=0;
+		while i<n do
+		begin
+			s = s+v[i];
+			i = i+1;
+		end;		
+		return s;
+	end;
+	
+	/*  Multiframe version of the function above.
+		Compiles to a struct (the execution "context") that contains
+		the arguments, room for return value and local variables.
+		Each static void fX(void* _ctx, Celesta::ExecutionController* ctrl)
+		is an atomic partition of the code, meaning a portion of code that
+		is guaranteed not to be interrupted by any suspend calls.
+		
+		The ExecutionController (defined in /source/cpp_runtime) contains logic that
+		handler multiframe function calls in a more or less similar way to how
+		assembly cdecl convention works (the caller creates and cleans up the stack
+		frame == execution context). This is the only real overhead of the Celesta 
+		multiframe runtime method.
+	 */
+	multiframe function sum_multiframe(v:int*, n:int):int
+	begin
+		var s=0;
+		var i=0;
+		while i<n do
+		begin
+			s = s+v[i];
+			i = i+1;
+			suspend;
+		end;
+		return s;
+	end;
+end;
