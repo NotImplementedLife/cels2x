@@ -81,6 +81,23 @@ In essence, I designed with the following way to do things in mind: **C++ handle
 
 In this repo, the `source/` directory contains the Python implementation of the language. The code is still (very) messy and unorganized, but potentially readable. The `examples/` directory contains application of the Celesta language. 
 
+Since reliable comments are currently scarce, here is a little guidechart on the files:
+
+- `fa.py` contains custom finite automata implementation
+- `lexer.py` contains custom (potentially buggy) regex implementation based on the previous finite automata and a simple lexical analyzer. This all part can be replaced with other native/performant methods, but I wanted to write my own because I feel that this way I have more control over what's actually happening. The lexical analyzer is meant to convert code into tokens like keywords, operators, literals etc. 
+- `scopes.py` handles anything related to scope of the symbols. In a case like `package A begin var x; end; \n var x;`, the two `x`s reside in different scopes, therefore have different identities: `global::A::x` and `global::x` (`global` is the default root scope). This file also performs rudimentary scope resolution. For example, if your parser if currently in scope `global::A` and you encounter an `x` token, it would automatically know it is referring to `global::A::x`. Clauses like C# using or symbol aliasing are currently not supported, that means you have to call each symbol by its full name. Anonymous scopes are possible: you can't refer a variable declared inside a `while` block from outside its scope.
+- `grammar.py` defines BNF-style grammar definition components like Terminal, NonTerminal, Rule. A rule can have an associated translation function that is called when performing reduction. For example, for a rule like "Addition <- Term(1) + Term(2)" and an input string "1+2", supposing we computed the AST nodes Term(1)=literal_1 and Term(2)=literal_2, the translation function may look like "lambda t1,op,t2: return AST_AddNode(left=t1,right=t2)" and assign the output of this rule to the obtained binary addition AST node. This module also defines a RuleCallback (rc) system designed to create composed functions which are a cleaner replacement of lambda functions. Instead of lambda *args: f(args[0], args[1]), you can write rc.call(f, rc.arg(0), rc.arg(1)). A grammar is simply a collection of rules.
+- `ast.py` provides the skeleton for the abstract syntax tree (AST). An AST Node has a parent and a list of children. The children are key indexed so it's easier for subclassed nodes to manipulate them.
+- `lr1.py` defines a LR-1 parser which uses a grammar definition to parse a sequence of tokens obtained from the lexer.
+
+FA, Lexer, Grammar, AST and LR1 are **generic** pieces of code that can be reused in other contexts than a Cels compiler/interpreter. The next python files are specific to Cels compiler implementation:
+
+- `cels_core.py` is the base module that converts source code to AST. 
+- `cels2cpp.py` takes the process one step further and generates C++ code from the AST.
+- `modular_cels_compiler.py` provides builtin support for `import`ed files lookup.
+
+The `cpp_runtime` folder contains a possible implementation of a multiframe C++ runtime execution stack. See `examples/barebones` for more details.
+
 The `gba_celstris` project is a very simple GBA Tetris clone which features Celesta script for handling user inputs. The C++ extern functions only update the Tetris board (add pieces, test overlap, clear).
 
 
@@ -88,4 +105,9 @@ The `gba_celstris` project is a very simple GBA Tetris clone which features Cele
 
 The language is usable for its intended purpose (multiframe game loop control). However, there are some quality of life updates that can be done. For example, because there is no support for unary operators, you can't represent a negative constant in Cels so you'd have to write -1 as 0-1. The language is mainly procedural, and I do not intend to include OOP support as it would be too much of a work. However, a small addition to have an alternative syntax for calling `f(a,b)` as `a.f(b)` would do the trick. And only simple inheritance for extern structs may help in case we need for example to call from Cels a virtual C++ `Sprite::move` method on an object `Human` that inherits `Sprite`. Last but not least, I should include a language specification (until I won't forget all the features I designed :) ).
 
+Other possible improvements:
 
+- add `for`s (there are currently only `while`s)
+- replace `if..end` with `if..fi/endif` due to redundancy with `begin..end` blocks. (I like to keep Pascal-like syntax so can't help.)
+- native Cels structs (they exist at AST level, but no C++ compiler support)
+- using clause & type aliasing
