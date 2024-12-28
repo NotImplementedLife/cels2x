@@ -108,6 +108,6 @@ The language is usable for its intended purpose (multiframe game loop control). 
 Other possible improvements:
 
 - add `for`s (there are currently only `while`s)
-- replace `if..end` with `if..fi/endif` due to redundancy with `begin..end` blocks. (I like to keep Pascal-like syntax so can't help.)
+- replace `if..end` with `if..fi/endif` due to collision with `begin..end` blocks. (I like to keep Pascal-like syntax so can't help.)
 - native Cels structs (they exist at AST level, but no C++ compiler support)
 - using clause & type aliasing
