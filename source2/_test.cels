@@ -1,0 +1,18 @@
+package A begin
+	package B begin
+		multiframe function gcd(a:int, b:int):int
+		begin
+			while b>0 do
+			begin
+				var r:int;
+				r=a%b;
+				a=b;
+				b=r;
+				suspend;
+			end;
+			
+			return a;
+		end;
+	
+	end;
+end;

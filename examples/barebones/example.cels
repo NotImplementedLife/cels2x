@@ -11,7 +11,7 @@ begin
 		begin
 			s = s+v[i];
 			i = i+1;
-		end;		
+		end;
 		return s;
 	end;
 	
@@ -40,4 +40,16 @@ begin
 		end;
 		return s;
 	end;
+	
+	multiframe function main(v:int*, n:int):int
+	begin
+		var s = taskstart () => sum_multiframe(v, n);
+		
+		while taskready(s)==0 do
+		begin
+			suspend;
+		end;
+		return taskresult(s);		
+	end;
+	
 end;
