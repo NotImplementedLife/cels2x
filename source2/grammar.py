@@ -369,7 +369,12 @@ class Grammar:
     def __str__(self): return '\n'.join(map(str, self.rules))
     
     def checksum(self):
-        return len(self.rules)
+        cs = len(self.rules)
+        
+        for rule in self.rules:
+            cs += len(rule.rhs)
+    
+        return cs
         
     def get_terminal_by_value(self, value, comp=None):
         comp = comp or (lambda x,y: x==y)

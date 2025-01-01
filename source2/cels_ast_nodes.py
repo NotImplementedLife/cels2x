@@ -298,6 +298,10 @@ class _AST_Continue(ASTSimpleInstruction):
     def __init__(self):
         ASTSimpleInstruction.__init__(self, "continue")        
 
+class _AST_Lambda(_AST_ExpressionNode):
+    def __init__(self, dtype):
+        _AST_ExpressionNode.__init__(self, dtype)
+
 class ASTNodes:
     Block = ASTBlock
     ExpressionNode = _AST_ExpressionNode
@@ -321,3 +325,4 @@ class ASTNodes:
     Suspend = _AST_Suspend
     Break = _AST_Break
     Continue = _AST_Continue
+    Lambda = _AST_Lambda

@@ -247,8 +247,7 @@ class LR1AnalysisTable:
         
         print(f"TABLE SIZE = {len(self.table)}")
     
-    def save(self, path:str):
-        print(list(self.table.items())[:20])
+    def save(self, path:str):        
         lines = []
         lines.append(str(self.grammar.checksum())+"\n")
         with open(path, 'w') as f:
@@ -301,8 +300,14 @@ class LR1AnalysisTable:
             return True
         
     def __add_to_table(self, key:tuple[int, LR1AnalysisTable.TableColumn], item:TableItem):
-        if not key in self.table: self.table[key] = set()
+        if not key in self.table: self.table[key] = set()        
         self.table[key].add(item)
+        
+        if len(self.table[key])>1:
+            conflicts = self.find_conflicts()
+            if len(conflicts)>0:
+                print("Conflicts found:", conflicts)
+                raise RuntimeError("Conflicts in LR1 analysis table")
         
     def pretty_print(self):
         TC = LR1AnalysisTable.TableColumn        
@@ -427,7 +432,7 @@ class LR1Parser:
             rule = self.grammar.rules[nxt.value]
             poped = pop(len(rule.rhs))
             if poped is None: return None
-                        
+            print(rule)            
             attributes = list(map(lambda _:_.value if isinstance(_, NonTerminal) else _, poped))            
             if push(StackRuleComponent(rule.lhs, rule.process_match(attributes))) is None:
                 for p in poped: push(p)

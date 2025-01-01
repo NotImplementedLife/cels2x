@@ -16,8 +16,15 @@ package A begin
 		
 		multiframe function main():int
 		begin
-			var x:int;
-			x = 1;
+			var x:int = 1;
+			
+			var f = taskstart lambda (y:int) => (gcd(x,24));
+			
+			while taskready(f)==0 do begin end;
+			
+			var r = taskresult(f);
+			
+			/* taskready taskresult */
 			
 			while gcd(x, 24)!= 8 do
 			begin

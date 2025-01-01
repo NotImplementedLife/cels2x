@@ -66,6 +66,7 @@ class Cels2AST:
         kw_if          = rcf.terminal(CelsTokenTypes.KW_IF.name)
         kw_import      = rcf.terminal(CelsTokenTypes.KW_IMPORT.name)
         kw_int         = rcf.terminal(CelsTokenTypes.KW_INT.name)
+        kw_lambda      = rcf.terminal(CelsTokenTypes.KW_LAMBDA.name)
         kw_multiframe  = rcf.terminal(CelsTokenTypes.KW_MULTIFRAME.name)
         kw_package     = rcf.terminal(CelsTokenTypes.KW_PACKAGE.name)
         kw_return      = rcf.terminal(CelsTokenTypes.KW_RETURN.name)
@@ -73,6 +74,10 @@ class Cels2AST:
         kw_string      = rcf.terminal(CelsTokenTypes.KW_STRING.name)
         kw_struct      = rcf.terminal(CelsTokenTypes.KW_STRUCT.name)
         kw_suspend     = rcf.terminal(CelsTokenTypes.KW_SUSPEND.name)
+        kw_taskstart   = rcf.terminal(CelsTokenTypes.KW_TASKSTART.name)
+        kw_taskready   = rcf.terminal(CelsTokenTypes.KW_TASKREADY.name)
+        kw_taskresult   = rcf.terminal(CelsTokenTypes.KW_TASKRESULT.name)        
+        
         kw_then        = rcf.terminal(CelsTokenTypes.KW_THEN.name)        
         kw_var         = rcf.terminal(CelsTokenTypes.KW_VAR.name)
         kw_void        = rcf.terminal(CelsTokenTypes.KW_VOID.name)
@@ -91,6 +96,7 @@ class Cels2AST:
         s_lbrack       = rcf.terminal(CelsTokenTypes.S_LBRACK.name)
         s_lparen       = rcf.terminal(CelsTokenTypes.S_LPAREN.name)
         s_lrarrow       = rcf.terminal(CelsTokenTypes.S_LRARROW.name)
+        s_rrarrow       = rcf.terminal(CelsTokenTypes.S_RRARROW.name)
         s_lt           = rcf.terminal(CelsTokenTypes.S_LT.name)
         s_lte          = rcf.terminal(CelsTokenTypes.S_LTE.name)
         s_minus        = rcf.terminal(CelsTokenTypes.S_MINUS.name)
@@ -138,6 +144,8 @@ class Cels2AST:
         
         LITERAL       = rcf.non_terminal("LITERAL")
         
+        LAMBDA_DECL   = rcf.non_terminal("LAMBDA_DECL")
+        
         SYMBOL        = rcf.non_terminal("SYMBOL")
         SYM_CHAIN     = rcf.non_terminal("SYM_CHAIN")
         
@@ -181,6 +189,8 @@ class Cels2AST:
             
             # Var decl
             ( STMT << kw_var * t_id * s_colon * DATA_TYPE).on_build(rc.call(self.reduce_vdecl, rc.arg(1), rc.arg(3))),
+            ( STMT << kw_var * t_id * s_colon * DATA_TYPE * s_equal * E).on_build(rc.call(self.reduce_vdecl_with_expr, rc.arg(1), rc.arg(3), rc.arg(5))),
+            ( STMT << kw_var * t_id * s_equal * E).on_build(rc.call(self.reduce_vdecl_with_expr, rc.arg(1), None, rc.arg(3))),
             
             # Package decl
             ( STMT << kw_package * ID_DEFINES_SCOPE * NAMED_SCOPE_PUSH * kw_begin * STMT_BLOCK * kw_end * SCOPE_POP)
@@ -262,22 +272,31 @@ class Cels2AST:
             (E_M << E_M * s_percent * E_TERM).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
             (E_M << E_F             ).on_build(rc.arg(0)),
             
+            
+            
             ( E_F << E_F * s_dot * t_id ).on_build(rc.call(self.reduce_member_access, rc.arg(0), rc.arg(2))),
             ( E_F << E_F * s_lrarrow * t_id ).on_build(rc.call(self.reduce_pointer_member_access, rc.arg(0), rc.arg(2))),
             ( E_F << E_P ).on_build(rc.arg(0)),
             
             ( E_P << s_ampersand * E_P).on_build(rc.call(self.reduce_addressof, rc.arg(1))),
-            ( E_P << s_star * E_P     ).on_build(rc.call(self.reduce_dereference, rc.arg(1))),
+            ( E_P << s_star * E_P     ).on_build(rc.call(self.reduce_dereference, rc.arg(1))),            
             ( E_P << E_TERM).on_build(rc.arg(0)),
             
             ( E_TERM << SYMBOL_TERM                     ).on_build(rc.arg(0)),
             ( E_TERM << LITERAL                         ).on_build(rc.arg(0)),
             ( E_TERM << s_lparen * E * s_rparen         ).on_build(rc.arg(1)),            
             ( E_TERM << E_TERM * s_lparen * E_LIST * s_rparen    ).on_build(rc.call(self.reduce_call, rc.arg(0), rc.arg(2))),
+            ( E_TERM << kw_taskstart * LAMBDA_DECL    ).on_build(rc.arg(1)),
+            ( E_TERM << LAMBDA_DECL    ).on_build(rc.arg(0)),
+            ( E_TERM << kw_taskready * s_lparen * E *  s_rparen).on_build(rc.arg(2)),
+            ( E_TERM << kw_taskresult * s_lparen * E *  s_rparen).on_build(rc.arg(2)),
             
             ( E_LIST << E * s_comma * E_LIST).on_build(rc.call(self.reduce_list, rc.arg(0), rc.arg(2))),
             ( E_LIST << E).on_build(rc.call(self.reduce_list, rc.arg(0), None)),            
             ( E_LIST << eps).on_build(rc.call(self.empty_list)),
+            
+            ( LAMBDA_DECL << kw_lambda * s_lparen * SCOPE_PUSH * FPARAMS * s_rparen * s_rrarrow * ANON_SCOPED_BLOCK_ENCAPSULED * SCOPE_POP).on_build(rc.call(self.reduce_lambda)),
+            ( LAMBDA_DECL << kw_lambda * s_lparen * SCOPE_PUSH * FPARAMS * s_rparen * s_rrarrow * s_lparen * E * s_rparen * SCOPE_POP).on_build(rc.call(self.reduce_lambda)),
             
             ( SYMBOL_TERM << SYMBOL                     ).on_build(rc.call(self.reduce_symbol_term, rc.arg(0))),
             
@@ -289,7 +308,7 @@ class Cels2AST:
             ( LITERAL << literal_int               ).on_build(rc.call(self.reduce_int_literal, rc.arg(0))),
             ( LITERAL << literal_dec               ).on_build(rc.call(self.reduce_dec_literal, rc.arg(0))),
             ( LITERAL << literal_str               ).on_build(rc.call(self.reduce_string_literal, rc.arg(0))),
-            ( LITERAL << literal_bool              ).on_build(rc.call(self.reduce_bool_literal, rc.arg(0))),                        
+            ( LITERAL << literal_bool              ).on_build(rc.call(self.reduce_bool_literal, rc.arg(0))),
             
             ( DATA_TYPE << kw_int                  ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             #( DATA_TYPE << kw_float                ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
@@ -316,6 +335,16 @@ class Cels2AST:
         scope = self.current_scope()
         struct_type = ensure_type(scope.associated_symbol, StructType)        
         return scope, struct_type
+    
+    def reduce_lambda(self):
+        return ASTNodes.Lambda(self.env.dtype_int)
+        
+    def reduce_vdecl_with_expr(self, var_token:LexicalToken, data_type:DataType, expr: ASTNodes.ExpressionNode):        
+        ensure_type(expr, ASTNodes.ExpressionNode)
+        data_type = ensure_type(data_type, DataType, None) or expr.data_type
+        vdecl = self.reduce_vdecl(var_token, data_type)
+        assign = self.reduce_assign(self.reduce_symbol_term(vdecl.variable), expr)
+        return self.reduce_block([vdecl, assign])
     
     def reduce_block(self, nodes:list):
         block = ASTNodes.Block(*nodes)
