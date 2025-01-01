@@ -145,6 +145,7 @@ class Cels2AST:
         LITERAL       = rcf.non_terminal("LITERAL")
         
         LAMBDA_DECL   = rcf.non_terminal("LAMBDA_DECL")
+        LAMBDA_HEADER   = rcf.non_terminal("LAMBDA_HEADER")
         
         SYMBOL        = rcf.non_terminal("SYMBOL")
         SYM_CHAIN     = rcf.non_terminal("SYM_CHAIN")
@@ -295,8 +296,16 @@ class Cels2AST:
             ( E_LIST << E).on_build(rc.call(self.reduce_list, rc.arg(0), None)),            
             ( E_LIST << eps).on_build(rc.call(self.empty_list)),
             
-            ( LAMBDA_DECL << kw_lambda * s_lparen * SCOPE_PUSH * FPARAMS * s_rparen * s_rrarrow * ANON_SCOPED_BLOCK_ENCAPSULED * SCOPE_POP).on_build(rc.call(self.reduce_lambda)),
-            ( LAMBDA_DECL << kw_lambda * s_lparen * SCOPE_PUSH * FPARAMS * s_rparen * s_rrarrow * s_lparen * E * s_rparen * SCOPE_POP).on_build(rc.call(self.reduce_lambda)),
+            ( LAMBDA_DECL << LAMBDA_HEADER * s_colon * DATA_TYPE * s_rrarrow * ANON_SCOPED_BLOCK_ENCAPSULED * SCOPE_POP)
+                .on_build(rc.call(self.reduce_lambda, rc.arg(0), rc.arg(4), rc.arg(2))),
+            ( LAMBDA_DECL << LAMBDA_HEADER * s_rrarrow * ANON_SCOPED_BLOCK_ENCAPSULED * SCOPE_POP)
+                .on_build(rc.call(self.reduce_lambda, rc.arg(0), rc.arg(2))), 
+                
+            ( LAMBDA_DECL << LAMBDA_HEADER * s_rrarrow * s_lparen * E * s_rparen * SCOPE_POP)
+                .on_build(rc.call(self.reduce_lambda, rc.arg(0), rc.arg(3))),
+            
+            ( LAMBDA_HEADER << kw_lambda * s_lparen * SCOPE_PUSH * FPARAMS * s_rparen)
+                .on_build(rc.call(self.reduce_lambda_header, rc.arg(2), rc.arg(3))),
             
             ( SYMBOL_TERM << SYMBOL                     ).on_build(rc.call(self.reduce_symbol_term, rc.arg(0))),
             
@@ -336,8 +345,102 @@ class Cels2AST:
         struct_type = ensure_type(scope.associated_symbol, StructType)        
         return scope, struct_type
     
-    def reduce_lambda(self):
-        return ASTNodes.Lambda(self.env.dtype_int)
+    def reduce_lambda_header(self, scope:Scope, params:list[tuple[str, DataType]])->tuple[Scope, list[FormalParameter]]:
+        params = [self.env.add_symbol(scope, lambda scope: FormalParameter(pname, scope, pdata_type)) for pname, pdata_type in params]
+        return scope, params
+        
+    
+    def reduce_lambda(self, header: tuple[Scope, list[FormalParameter]], implementation:ASTNodes.Block|ASTNodes.ExpressionNode, return_type:DataType|None=None):
+        ensure_type(implementation, ASTNodes.Block, ASTNodes.ExpressionNode)
+        ensure_type(return_type, DataType, None)
+    
+        scope, params = header
+        print("?????????????????????????????????????")
+        print(params)
+        print(implementation)
+        print(self.current_scope(), scope)
+        print("?????????????????????????????????????")
+        
+        if return_type is None:
+            if isinstance(implementation, ASTNodes.ExpressionNode):
+                return_type = implementation.data_type
+            else:
+                return_type = self.env.dtype_void
+        
+        captured_nodes = []
+        lambda_arg_nodes = []
+        specs_dict = {}
+        
+        def find_captures(node):
+            if isinstance(node, ASTNodes.SymbolTerm):
+                symbol = node.symbol
+                if symbol.is_in_scope(scope): 
+                    if not(isinstance(symbol, FormalParameter) and symbol.scope==scope):
+                        return False
+                    lambda_arg_nodes.append(node)
+                    pass
+                else:
+                    # ignore global symbols (that not have @ in name): 
+                    if not '@' in symbol.get_full_name(): return False
+                    captured_nodes.append(node)      
+            if isinstance(node, ASTNodes.FunOverloadCall):
+                if node.function_overload.is_multiframe:
+                    specs_dict['is_multiframe']=True
+            return False
+        implementation.parse(find_captures)
+                
+        captured_symbols:dict[Symbol, tuple[str, DataType]] = {}
+        for node in captured_nodes:
+            if not node.symbol in captured_symbols:
+                captured_symbols[node.symbol] = (node.symbol.name, node.data_type.make_pointer())
+        
+        lambda_sym, lambda_scope = self.env.generate_lambda_function()
+        
+        captures = []
+        lambda_params = []
+        for symbol in captured_symbols.keys():
+            captures.append(symbol)
+            name, data_type = captured_symbols[symbol]
+            param = self.env.add_symbol(lambda_scope, FormalParameter.scoped_creator(name, data_type))
+            lambda_params.append(param)
+            captured_symbols[symbol] = param
+        
+        l_arg_symbols = {}
+        for param in params:
+            name, data_type = param.name, param.data_type
+            lparam = self.env.add_symbol(lambda_scope, FormalParameter.scoped_creator(name, data_type))
+            l_arg_symbols[param] = lparam
+            lambda_params.append(lparam)
+        
+        print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+        print(lambda_params)
+            
+        overload = lambda_sym.add_overload(FunctionOverload(lambda_sym, lambda_params, return_type, **specs_dict))
+        captured_args = [self.reduce_addressof(self.reduce_symbol_term(symbol)) for symbol in captures]
+        
+        print(overload)
+        print(overload.params)
+        print(overload.func_symbol.declaring_type)
+        
+        for cnode in captured_nodes:
+            sym = captured_symbols[node.symbol]
+            cnode.replace_with(self.reduce_dereference(self.reduce_symbol_term(sym)))
+        
+        for anode in lambda_arg_nodes:
+            lambda_sym = l_arg_symbols[anode.symbol]
+            anode.replace_with(self.reduce_symbol_term(lambda_sym))
+
+        if isinstance(implementation, ASTNodes.ExpressionNode):
+            implementation = self.reduce_block([self.reduce_return(implementation)])
+        
+        overload.implementation = implementation
+        
+        print("!!! IMPLEMENTATION")
+        print(overload.implementation)
+        print("!!! IMPLEMENTATION")
+        
+        return ASTNodes.FunctionClosure(overload, self.env.dtype_closure_function, captured_args)
+
         
     def reduce_vdecl_with_expr(self, var_token:LexicalToken, data_type:DataType, expr: ASTNodes.ExpressionNode):        
         ensure_type(expr, ASTNodes.ExpressionNode)
@@ -368,6 +471,19 @@ class Cels2AST:
                     args[i] = ASTNodes.TypeConvert(args[i], conv)
             
             return ASTNodes.FunOverloadCall(overload, args)
+    
+        if callable_item.data_type==self.env.dtype_closure_function:
+            if not isinstance(callable_item, ASTNodes.FunctionClosure):
+                raise ASTException("Expression of type closure must be explicit: (lambda (params)=>(...))(args)")
+            overload = callable_item.function_overload            
+            c_args = callable_item.captured_args + args
+            arg_types = list(map(lambda a:a.data_type, c_args))
+            for i in range(len(c_args)):
+                if overload.params[i].data_type!=arg_types[i]:
+                    conv = self.env.op_solver.resolve_converter(arg_types[i], overload.params[i].data_type)
+                    c_args[i] = ASTNodes.TypeConvert(c_args[i], conv)
+            # include lambda implementation so that it will be reachable in AST parse
+            return ASTNodes.FunOverloadCall(overload, c_args, include_impl_node=True)
     
         raise ASTException(f"Object of type {callable_item.data_type} is not callable.")        
         
@@ -445,7 +561,7 @@ class Cels2AST:
         
         specs_dict = {}
         if specs is not None:
-            for spec in specs:                
+            for spec in specs:
                 if spec[0]=="multiframe": specs_dict["is_multiframe"]=True
                 elif spec[0]=="extern": specs_dict["is_extern"]=True
                 elif spec[0]=="cpp_include": specs_dict["cpp_include"]=spec[1]['header']
@@ -574,8 +690,8 @@ class Cels2AST:
 
     def reduce_push_scope(self, scope_name=None, strategy:list[str]=ScopeResolveStrategy.CREATE):
         scope_name = scope_name or self.env.scope_name_provider.new_name()
-        self.scope_stack.push(scope_name, strategy=strategy)
-        return None
+        scope = self.scope_stack.push(scope_name, strategy=strategy)
+        return scope
     
     def reduce_named_scope_push(self, strategy:list[str]=ScopeResolveStrategy.CREATE):
         scope_name = self.named_scope_stack.pop()
@@ -603,6 +719,7 @@ class Cels2AST:
         
         mf_calls = []        
         def identify_multiframe_calls(node):
+            print("IMC", type(node).__name__, str(node).replace("\n", " "))
             if isinstance(node, ASTNodes.FunOverloadCall) and node.function_overload.is_multiframe:
                 mf_calls.append(node)
                 return True

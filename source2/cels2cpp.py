@@ -279,6 +279,11 @@ class CelsEnv2Cpp:
         return snippet
         
     def __compile_function_overload(self, overload:FunctionOverload)->CppSnippet:
+    
+        print("OVERLOAD COMPILE ^^^^^^^^^^^^^^^^^")
+        print(overload)
+        print(overload.implementation)
+    
         snippet = CppSnippet([])
         
         if overload.is_multiframe:
@@ -423,6 +428,9 @@ class CelsEnv2Cpp:
             if node.else_branch is not None:
                 else_branch = self.__compile_ast_node(node.else_branch, prio_build)
                 snippet += ["else\n", else_branch]
+            return snippet
+        if isinstance(node, ASTNodes.AddressOf):
+            snippet += ["&(", self.__compile_ast_node(node.operand, prio_build), ")"]
             return snippet
 
         return CppSnippet([f"/* Not implemented node {type(node)} */"])

@@ -24,6 +24,7 @@ class CelsEnvironment:
         self.dtype_void = glb_add_symbol(PrimitiveType.scoped_creator('void'))
         self.dtype_function = glb_add_symbol(PrimitiveType.scoped_creator('builtin@function'))
         self.dtype_instance_method = glb_add_symbol(PrimitiveType.scoped_creator('builtin@instance_method'))
+        self.dtype_closure_function = glb_add_symbol(PrimitiveType.scoped_creator('builtin@closure_function'))
         
     @property
     def internal_sym_id_provider(self): return self._internal_sym_id_provider
@@ -69,6 +70,12 @@ class CelsEnvironment:
     def enumerate_symbols(self):
         return self.global_scope.enumerate_symbols(recursive=True)
         
-        
-        
+
+    def generate_lambda_function(self):
+        name = f"icels_lambda_{self.internal_sym_id_provider.create_id()}"
+        lambda_sym = self.add_symbol(self.global_scope, Function.scoped_creator(name))
+        scope_name = f"@{name}_ov{lambda_sym.get_overloads_count()+1}"
+        lambda_scope = self.global_scope.get_subscope(scope_name, strategy=ScopeResolveStrategy.CREATE)
+        lambda_scope.associated_symbol = lambda_sym
+        return lambda_sym, lambda_scope
     

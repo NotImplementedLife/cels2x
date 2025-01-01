@@ -432,7 +432,7 @@ class LR1Parser:
             rule = self.grammar.rules[nxt.value]
             poped = pop(len(rule.rhs))
             if poped is None: return None
-            print(rule)            
+            # print(rule)            
             attributes = list(map(lambda _:_.value if isinstance(_, NonTerminal) else _, poped))            
             if push(StackRuleComponent(rule.lhs, rule.process_match(attributes))) is None:
                 for p in poped: push(p)

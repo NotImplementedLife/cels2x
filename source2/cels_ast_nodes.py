@@ -164,7 +164,6 @@ class _AST_TypeConvert(_AST_ExpressionNode):
     def __str__(self): return f"conv({self.expression}, {self.data_type})"
     def clone(self): return _AST_TypeConvert(self.expression.clone(), self.converter)
 
-
 class _AST_FuncDecl(ASTNode):    
     
     implementation = property(ASTNode.simple_child_getter("implementation"), ASTNode.simple_child_setter("implementation"))
@@ -255,15 +254,20 @@ class _AST_FieldAccessor(_AST_ExpressionNode):
     
 class _AST_FunOverloadCall(_AST_ExpressionNode):
     args = property(ASTNode.simple_children_list_getter('args'))
+    impl_ref = property(ASTNode.simple_child_getter('impl_ref'), ASTNode.simple_child_setter('impl_ref'))
     
-    def __init__(self, func_overload:FunctionOverload, args:list[_AST_ExpressionNode]):
+    def __init__(self, func_overload:FunctionOverload, args:list[_AST_ExpressionNode], include_impl_node:bool=False):
         ensure_type(func_overload, FunctionOverload)
         ensure_type(args, list)
         _AST_ExpressionNode.__init__(self, func_overload.return_type)
         self.register_children_list_key("args")
+        self.register_children_list_key("impl_ref")
         self._function_overload = func_overload
         for arg in args:
             arg.set_parent(self, "args")
+        
+        if include_impl_node:
+            self.impl_ref = self.function_overload.implementation
         
     @property
     def function_overload(self): return self._function_overload
@@ -273,7 +277,8 @@ class _AST_FunOverloadCall(_AST_ExpressionNode):
     
     def __str__(self):
         args_str = ', '.join([str(arg) for arg in self.args])
-        return f"{self.function_overload.func_symbol}({args_str})"
+        mf = "<M>" if self.function_overload.is_multiframe else ""
+        return f"{self.function_overload.func_symbol}{mf}({args_str})"
 
 class _AST_Return(ASTNode):
     value = property(ASTNode.simple_child_getter('value'), ASTNode.simple_child_setter('value'))
@@ -298,9 +303,34 @@ class _AST_Continue(ASTSimpleInstruction):
     def __init__(self):
         ASTSimpleInstruction.__init__(self, "continue")        
 
-class _AST_Lambda(_AST_ExpressionNode):
-    def __init__(self, dtype):
-        _AST_ExpressionNode.__init__(self, dtype)
+class _AST_FunctionClosure(_AST_ExpressionNode):
+    captured_args = property(ASTNode.simple_children_list_getter('captured_args'))
+    implementation = property(ASTNode.simple_child_getter("implementation"), ASTNode.simple_child_setter("implementation"))
+    
+
+    def __init__(self, func_overload:FunctionOverload, closure_type:DataType, captured_args:list[_AST_ExpressionNode]):
+        _AST_ExpressionNode.__init__(self, ensure_type(closure_type, DataType))
+        self.register_children_list_key('captured_args')
+        self.register_child_key("implementation")        
+        self._function_overload = ensure_type(func_overload, FunctionOverload)
+        self.implementation = ensure_type(func_overload.implementation, ASTNode)
+        
+        for arg in captured_args:
+            arg.set_parent(self, 'captured_args')
+    
+    @property
+    def function_overload(self): return self._function_overload
+    
+    def __str__(self):
+        str_captures = ', '.join([str(arg) for arg in self.captured_args])
+        flags = []
+        if self.func_overload.is_extern: flags.append("E")
+        if self.func_overload.is_multiframe: flags.append("M")
+        if self.func_overload.cpp_include is not None: flags.append("C")
+        flags = ("["+"".join(flags)+"]") if len(flags)>0 else ""
+        
+        return f"(lambda{flags} {self.function_overload.func_symbol.get_full_name()}[{str_captures}]=>{self.implementation})"
+
 
 class ASTNodes:
     Block = ASTBlock
@@ -325,4 +355,4 @@ class ASTNodes:
     Suspend = _AST_Suspend
     Break = _AST_Break
     Continue = _AST_Continue
-    Lambda = _AST_Lambda
+    FunctionClosure = _AST_FunctionClosure

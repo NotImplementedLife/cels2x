@@ -1,4 +1,25 @@
 package A begin
+	multiframe function f(x:int):int begin
+		return x;
+	end;
+
+	multiframe function main():int begin
+		var y=7;
+		return (lambda (q:int) => (f(2)+q))(y);
+	end;
+
+	/*multiframe function main():int begin
+		var x:int = 2;
+		var q = (lambda (y:int):int => 
+			begin 
+				var z = f(x+y);
+				return z;
+			end)(2);
+		return q;
+	end;*/
+end;
+
+/*package A begin
 	package B begin
 		multiframe function gcd(a:int, b:int):int
 		begin
@@ -14,17 +35,11 @@ package A begin
 			return a;
 		end;
 		
+		var z:int;
+		
 		multiframe function main():int
 		begin
 			var x:int = 1;
-			
-			var f = taskstart lambda (y:int) => (gcd(x,24));
-			
-			while taskready(f)==0 do begin end;
-			
-			var r = taskresult(f);
-			
-			/* taskready taskresult */
 			
 			while gcd(x, 24)!= 8 do
 			begin
@@ -33,6 +48,11 @@ package A begin
 						
 			return x;
 		end;
+	end;
 	
+	function w():int begin
+		var x:int = 2;
+		(lambda (y:int) => (x+y))(2);
 	end;
 end;
+*/

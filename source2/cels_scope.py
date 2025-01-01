@@ -24,6 +24,12 @@ class Symbol:
     
     def __eq__(self, other): return isinstance(other, type(self)) and self._full_name==other._full_name
     def __hash__(self): return self._hash_code
+    
+    def is_in_scope(self, scope:Scope):
+        s = self.scope
+        while s is not None and s!=scope:
+            s = s.parent
+        return s is not None
 
 
 class ScopeResolveStrategy:

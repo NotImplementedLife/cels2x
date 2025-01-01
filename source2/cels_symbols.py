@@ -108,6 +108,12 @@ class FormalParameter(Symbol):
     @property
     def data_type(self): return self._data_type
     
+    @staticmethod
+    def scoped_creator(name:str, data_type:DataType): 
+        def creator(scope:Scope): return FormalParameter(name, scope, data_type)
+        return creator
+    
+    
 class Field(Symbol):
     def __init__(self, name:str, scope:Scope, data_type:DataType):
         Symbol.__init__(self, name, scope)
@@ -206,8 +212,6 @@ class Function(Symbol):
     def scoped_creator(name:str, declaring_type:DataType|None=None): 
         def creator(scope:Scope): return Function(name, scope, declaring_type)
         return creator
-    
-    
     
 class BinaryOperator:
     def __init__(self, symbol:str, arg1_type:DataType, arg2_type:DataType, res_type:DataType):
