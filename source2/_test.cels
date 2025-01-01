@@ -13,6 +13,19 @@ package A begin
 			
 			return a;
 		end;
+		
+		multiframe function main():int
+		begin
+			var x:int;
+			x = 1;
+			
+			while gcd(x, 24)!= 8 do
+			begin
+				x = x+1;
+			end;
+						
+			return x;
+		end;
 	
 	end;
 end;

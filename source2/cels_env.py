@@ -12,6 +12,7 @@ class CelsEnvironment:
         self._op_solver = OperatorSolver()
         self._scope_name_provider = ScopeNameProvider()
         self._sym_id_provider = IdProvider()
+        self._internal_sym_id_provider = IdProvider()
         
         def glb_add_symbol(symbol_creator):
             return self.add_symbol(self.global_scope, symbol_creator)
@@ -24,6 +25,8 @@ class CelsEnvironment:
         self.dtype_function = glb_add_symbol(PrimitiveType.scoped_creator('builtin@function'))
         self.dtype_instance_method = glb_add_symbol(PrimitiveType.scoped_creator('builtin@instance_method'))
         
+    @property
+    def internal_sym_id_provider(self): return self._internal_sym_id_provider
     
     @property
     def global_scope(self)->Scope: return self._global_scope

@@ -11,7 +11,7 @@ from cels_env import CelsEnvironment
 from utils import ensure_type
 
 class Cels2AST:
-    def __init__(self, cels_env:CelsEnvironment|None = None):
+    def __init__(self, cels_env:CelsEnvironment|None = None, lr1_path=None):
         self.env = cels_env or CelsEnvironment.create_default()
             
         self.scope_stack = ScopeStack(self.env.global_scope)        
@@ -19,7 +19,11 @@ class Cels2AST:
         grammar = self.__create_grammar()
         self.named_scope_stack = []        
         
-        self.parser = LR1Parser(grammar)
+        print("H=",grammar.checksum())
+        
+        self.parser = LR1Parser(grammar, lr1_path)
+        if lr1_path is None:
+            self.parser.analysis_table.save("cels_lr1_at.txt")
         
         
     def parse_tokens(self, tokens, verbose=False, debug=True):
@@ -33,6 +37,7 @@ class Cels2AST:
         if not parse_result['success']:
             raise RuntimeError(parse_result['message'])
         ast = parse_result['value']
+        ast = self.post_process(ast)
         return ast
         #return self.post_process(ast)
     
@@ -164,7 +169,7 @@ class Cels2AST:
         G = Grammar([
             ( P << STMT_BLOCK                       ).on_build(rc.arg(0)),
             
-            ( STMT_BLOCK << STMTS                   ).on_build(rc.call(lambda nodes:ASTNodes.Block(*nodes), rc.arg(0))),            
+            ( STMT_BLOCK << STMTS                   ).on_build(rc.call(self.reduce_block, rc.arg(0))),            
             ( STMTS << STMT * s_semicolon * STMTS  ).on_build(rc.call(self.reduce_list, rc.arg(0), rc.arg(2))),            
             ( STMTS << eps  ).on_build(rc.call(self.empty_list)),
             
@@ -311,6 +316,11 @@ class Cels2AST:
         scope = self.current_scope()
         struct_type = ensure_type(scope.associated_symbol, StructType)        
         return scope, struct_type
+    
+    def reduce_block(self, nodes:list):
+        block = ASTNodes.Block(*nodes)
+        block.properties['scope'] = self.current_scope()
+        return block
         
     def reduce_return(self, value:ASTNodes.ExpressionNode|None=None):
         return ASTNodes.Return(value)
@@ -551,3 +561,98 @@ class Cels2AST:
     def reduce_list(self, head:any, tail:None|list[any]):        
         if tail is None: return [head]
         return [head] + ensure_type(tail, list)
+        
+    def post_process(self, ast):
+        ast = self.__ast_extract_multiframe_calls_in_block(ast)        
+        return ast        
+        
+    def gen_internal_var_name(self):
+        return f"cels_s{self.env.internal_sym_id_provider.create_id()}"
+     
+    def __ast_extract_multiframe_calls_in_block(self, ast):
+        stack = [ast]
+        
+        mf_calls = []        
+        def identify_multiframe_calls(node):
+            if isinstance(node, ASTNodes.FunOverloadCall) and node.function_overload.is_multiframe:
+                mf_calls.append(node)
+                return True
+            return False
+            
+        def extract_mf_call(mf_call):
+            # Converts Expr(mfcall(x)) to internal_var = mf_call(x); Expr(internal_var)
+            # In case of nested multiframe calls, they are extracted recursively        
+            
+            block = mf_call
+            instr = None
+            parent_iterative = None            
+            while block is not None and not isinstance(block, ASTNodes.Block):                                
+                instr = block
+                block = block.parent                
+                if isinstance(block, ASTNodes.While) and instr is block.condition:
+                    parent_iterative = block
+                    
+            if block is None:
+                raise RuntimeError("Invalid AST: multiframe function call does not have a block among its parents")
+            
+            result = []
+                      
+            if instr is not mf_call:  
+                block_scope = block.properties['scope']
+                
+                sym_name = self.gen_internal_var_name()
+                symbol = self.env.add_symbol(block_scope, lambda scope: Variable(sym_name, block_scope, mf_call.function_overload.return_type))
+
+                vdecl = ASTNodes.VDecl(symbol)
+
+                sterm_l = ASTNodes.SymbolTerm(symbol)
+                sterm_r = ASTNodes.SymbolTerm(symbol)            
+                
+                mf_call.replace_with(sterm_r)
+                attr = self.reduce_assign(sterm_l, mf_call)
+                    
+                instr.insert_before_it(vdecl)
+                instr.insert_before_it(attr)
+                
+                result.append(mf_call)
+            else:
+                result.append(mf_call)
+                
+            # while(MF) { BLOCK; } ==> var cond = MF; while(cond) { BLOCK; cond = MF; }
+            if parent_iterative is not None:
+                l_clone = sterm_l.clone()
+                r_clone = mf_call.clone()
+                assign = self.reduce_assign(l_clone, r_clone)
+                parent_iterative.block.insert_at_end(assign)
+                result.append(r_clone)
+            
+            return result
+        
+        while len(stack)>0:
+            mf_calls.clear()
+            node = stack[-1]
+            stack.pop()
+            node.parse(identify_multiframe_calls)            
+            
+            for mf_call in mf_calls:
+                extracts = extract_mf_call(mf_call)
+                for extract in extracts:
+                    for child in extract.enumerate_children():
+                        stack.append(child)            
+        
+        """
+        def check_import_statements()-> list[str]:            
+            imports = []
+            for node in ast.enumerate_children_deep():                
+                if not isinstance(node, ASTNodes.Import): continue                
+                if not (isinstance(node.parent, ASTNodes.Block) and node.parent.parent is None):
+                    raise ASTException("Import statement must be declared in global scope")                                
+                imports.append(node.path)
+            return imports
+                
+        imports = check_import_statements()
+        print(imports)
+        """
+        
+        
+        return ast

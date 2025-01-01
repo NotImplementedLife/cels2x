@@ -212,12 +212,18 @@ class LR1AnalysisTable:
         def __str__(self): return self.type_ + (str(self.value) if self.value>=0 else "")
         def __repr__(self): return f"TableItem<{str(self)}>"
     
-    def __init__(self, grammar:Grammar):
+    def __init__(self, grammar:Grammar, path:str=None):
         from time import time
+        
+        self.table:dict[tuple[int, LR1AnalysisTable.TableColumn], set[LR1AnalysisTable.TableItem]] = {}
+        
+        self.grammar = grammar
+        
+        if path is not None:
+            if self.load(path, grammar):
+                return
 
         self.cc = LR1CanonicalCollection(grammar)
-        self.grammar = self.cc.grammar
-        self.table:dict[tuple[int, LR1AnalysisTable.TableColumn], set[LR1AnalysisTable.TableItem]] = {}
 
         # shift
         for state, sym in self.cc.transitions.keys():                  
@@ -236,7 +242,63 @@ class LR1AnalysisTable:
                     key = (state.nid, LR1AnalysisTable.TableColumn.of(sym))
                     self.__add_to_table(key, LR1AnalysisTable.TableItem.reduce(elem.rule.rule_id))
         
+        if path is not None:
+            self.save(path)
+        
         print(f"TABLE SIZE = {len(self.table)}")
+    
+    def save(self, path:str):
+        print(list(self.table.items())[:20])
+        lines = []
+        lines.append(str(self.grammar.checksum())+"\n")
+        with open(path, 'w') as f:
+            f.writelines(lines)
+            for key, value in self.table.items():
+                n, tcol = key
+                
+                if tcol.component is None: tcol = 'e $'
+                else:
+                    if isinstance(tcol.component, Terminal):
+                        tcol = 't ' + str(tcol.component.value)
+                    elif isinstance(tcol.component, NonTerminal):
+                        tcol = 'n ' + tcol.component.name
+                    else:
+                        raise RuntimeError("Analysis table serialization failed")
+                v = ' '.join([str(val) for val in value])
+                
+                f.writelines(f"{n} {tcol} {v}\n")
+        
+    def load(self, path:str, grammar:Grammar):
+        with open(path, 'r') as f:
+            lines = f.read().splitlines()
+            if lines[0]!=str(grammar.checksum()):
+                print("LR1 load: Wrong checksum, outdated grammar")
+                return False
+                #raise RuntimeError("Failed to load analysis table: wrong checksum")
+            
+            for line in lines[1:]:
+                L = line.strip()
+                if L=="": continue
+                L = line.split()
+                n, t, v = L[:3]
+                
+                if t=='n': t = grammar.get_nonterminal_by_name(v)
+                elif t=='t': t = grammar.get_terminal_by_value(v)
+                elif t=='e': t = Prediction1.end_of_word()
+                else: raise RuntimeError(f"Invalid component type: {t}")
+                
+                items = []
+                for it in L[3:]:
+                    if it=='a': items.append(LR1AnalysisTable.TableItem.accepted())
+                    elif it.startswith('r'): items.append(LR1AnalysisTable.TableItem.reduce(int(it[1:])))
+                    elif it.startswith('s'): items.append(LR1AnalysisTable.TableItem.shift(int(it[1:])))
+                    else: raise RuntimeError(f"Invalid table item: {it}")
+                
+                key = (int(n), LR1AnalysisTable.TableColumn.of(t))
+                for it in items:
+                    self.__add_to_table(key, it)
+            
+            return True
         
     def __add_to_table(self, key:tuple[int, LR1AnalysisTable.TableColumn], item:TableItem):
         if not key in self.table: self.table[key] = set()
@@ -301,9 +363,9 @@ class LR1AnalysisTable:
         return []
 
 class LR1Parser:
-    def __init__(self, grammar:Grammar):
+    def __init__(self, grammar:Grammar, path:str=None):
         self.grammar = grammar
-        self.analysis_table = LR1AnalysisTable(self.grammar)        
+        self.analysis_table = LR1AnalysisTable(self.grammar, path)
         self.__test_for_conflicts()
         
     def __test_for_conflicts(self):

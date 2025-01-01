@@ -3,7 +3,10 @@ class ASTNode:
         self.__parent = None
         self.__parent_key = None
         self.__children = {}
-        self.properties = {}
+        self.__properties = {}
+        
+     @property
+     def properties(self): return self.__properties
         
     def register_child_key(self, key):
         self.__children[key] = None

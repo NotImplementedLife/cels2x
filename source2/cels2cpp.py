@@ -223,7 +223,23 @@ class CelsEnv2Cpp:
                     return CppSnippet(["ctrl->ret(); return;\n"])
                 else:
                     return CppSnippet(["ctx->return_value = ", self.__compile_ast_node(ast_node.value, prio_build), ";\n", "ctrl->ret(); return;\n"]) 
-               
+            if isinstance(ast_node, PseudoAST_PreMultiframeFunCall):
+                func = ast_node.funcall.function_overload
+                func_name = self.resolve_identifier(func.func_symbol).full_name
+                snippet = CppSnippet([])
+                snippet += ["{\n", "\tauto* f = ctrl->push<", func_name, ">();\n"]
+                for param, arg in zip(func.params, ast_node.funcall.args):
+                    snippet += [f"\tf->params.{param.name} = ", self.__compile_ast_node(arg, prio_build), ";\n"]
+                snippet += [f"\tctrl->call(f, ", func_name, f"::f0, ctx, ", fname, f"::f{ast_node.jump_f});\n", "\treturn;\n", "}\n"]
+                return snippet
+            if isinstance(ast_node, PseudoAST_PostMultiframeFunCall):
+                func = ast_node.funcall.function_overload
+                func_name = self.resolve_identifier(func.func_symbol).full_name
+                snippet = CppSnippet([])
+                if ast_node.result_lhs is not None:
+                    snippet += [ "{\n", f"\tauto* f = ctrl->peek<",func_name,">();\n", "\t", self.__compile_ast_node(ast_node.result_lhs, prio_build), " = f->return_value;\n", "}\n" ]
+                snippet += ["ctrl->pop();\n"]
+                return snippet
             return None
         
         snippet = CppSnippet([])
@@ -311,6 +327,7 @@ class CelsEnv2Cpp:
             #    print(v["id"], ".", v["head"])
             
             snippet += inner_snippet.indent()
+            snippet += "\n};\n"
             return snippet            
         else:
             rid = self.resolve_identifier

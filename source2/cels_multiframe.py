@@ -102,14 +102,14 @@ class MultiFrameCFGNode:
 
 class PseudoAST_PreMultiframeFunCall(ASTNode):
     def __init__(self, funcall, result_lhs):
-        super(PseudoAST_PreMultiframeFunCall, self).__init__()
+        ASTNode.__init__(self)        
         self.funcall = funcall
         self.result_lhs = result_lhs
         self.jump_f = None
 
 class PseudoAST_PostMultiframeFunCall(ASTNode):
     def __init__(self, funcall, result_lhs):
-        super(PseudoAST_PostMultiframeFunCall, self).__init__()
+        ASTNode.__init__(self)
         self.funcall = funcall
         self.result_lhs = result_lhs
 

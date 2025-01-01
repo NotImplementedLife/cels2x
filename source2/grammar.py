@@ -288,8 +288,7 @@ class Grammar:
         
         self.follow1_table: dict[NonTerminal, set[Prediction1]] = {}
         self.__build_follow1_table__()
-        
-        
+
         
     def __build_first1_table__(self):
         self.first1_table.clear()
@@ -368,3 +367,15 @@ class Grammar:
         #return [r for r in self.rules if r.lhs==n] #IterQuery(self.rules).filter(lambda r:r.lhs==n).to_list()
     
     def __str__(self): return '\n'.join(map(str, self.rules))
+    
+    def checksum(self):
+        return len(self.rules)
+        
+    def get_terminal_by_value(self, value, comp=None):
+        comp = comp or (lambda x,y: x==y)
+        candidates = [t for t in self.terminals if comp(t.value, value)]
+        return candidates[0]
+    
+    def get_nonterminal_by_name(self, name):        
+        candidates = [n for n in self.non_terminals if n.name==name]
+        return candidates[0]

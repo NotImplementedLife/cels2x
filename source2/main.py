@@ -11,7 +11,8 @@ lexer = CelsLexer()
 
 t = lexer.parse(read_file("_test.cels"))['tokens']
 
-c2a = Cels2AST()
+c2a = Cels2AST(lr1_path="cels_lr1_at.txt")
+#c2a = Cels2AST()
 
 r = c2a.parse_tokens(t)
 print("__________________________")

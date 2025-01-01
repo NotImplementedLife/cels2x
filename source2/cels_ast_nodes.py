@@ -268,6 +268,9 @@ class _AST_FunOverloadCall(_AST_ExpressionNode):
     @property
     def function_overload(self): return self._function_overload
     
+    def clone(self):
+        return _AST_FunOverloadCall(self.function_overload, [arg.clone() for arg in self.args])
+    
     def __str__(self):
         args_str = ', '.join([str(arg) for arg in self.args])
         return f"{self.function_overload.func_symbol}({args_str})"
