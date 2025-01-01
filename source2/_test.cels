@@ -5,7 +5,7 @@ package A begin
 
 	multiframe function main():int begin
 		var y=7;
-		return (lambda (q:int) => (f(2)+q))(y);
+		return (lambda () => (f(2)+y))();
 	end;
 
 	/*multiframe function main():int begin

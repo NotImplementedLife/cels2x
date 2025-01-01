@@ -324,9 +324,9 @@ class _AST_FunctionClosure(_AST_ExpressionNode):
     def __str__(self):
         str_captures = ', '.join([str(arg) for arg in self.captured_args])
         flags = []
-        if self.func_overload.is_extern: flags.append("E")
-        if self.func_overload.is_multiframe: flags.append("M")
-        if self.func_overload.cpp_include is not None: flags.append("C")
+        if self.function_overload.is_extern: flags.append("E")
+        if self.function_overload.is_multiframe: flags.append("M")
+        if self.function_overload.cpp_include is not None: flags.append("C")
         flags = ("["+"".join(flags)+"]") if len(flags)>0 else ""
         
         return f"(lambda{flags} {self.function_overload.func_symbol.get_full_name()}[{str_captures}]=>{self.implementation})"

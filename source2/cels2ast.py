@@ -475,7 +475,7 @@ class Cels2AST:
         if callable_item.data_type==self.env.dtype_closure_function:
             if not isinstance(callable_item, ASTNodes.FunctionClosure):
                 raise ASTException("Expression of type closure must be explicit: (lambda (params)=>(...))(args)")
-            overload = callable_item.function_overload            
+            overload = callable_item.function_overload
             c_args = callable_item.captured_args + args
             arg_types = list(map(lambda a:a.data_type, c_args))
             for i in range(len(c_args)):
