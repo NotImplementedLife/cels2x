@@ -136,6 +136,7 @@ class Cels2AST:
         E_M           = rcf.non_terminal("E_M")
         E_P           = rcf.non_terminal("E_P")
         E_F           = rcf.non_terminal("E_F")
+        E_C           = rcf.non_terminal("E_C")
         E_TERM        = rcf.non_terminal("E_TERM")
         E_LIST        = rcf.non_terminal("E_LIST")
         SYMBOL_TERM   = rcf.non_terminal("SYMBOL_TERM")
@@ -286,9 +287,10 @@ class Cels2AST:
             (E_M << E_M * s_star * E_TERM).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
             (E_M << E_M * s_slash * E_TERM).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
             (E_M << E_M * s_percent * E_TERM).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_M << E_F             ).on_build(rc.arg(0)),
+            (E_M << E_C             ).on_build(rc.arg(0)),
             
-            
+            ( E_C << E_C * s_lparen * E_LIST * s_rparen    ).on_build(rc.call(self.reduce_call, rc.arg(0), rc.arg(2))),
+            ( E_C << E_F).on_build(rc.arg(0)),
             
             ( E_F << E_F * s_dot * t_id ).on_build(rc.call(self.reduce_member_access, rc.arg(0), rc.arg(2))),
             ( E_F << E_F * s_lrarrow * t_id ).on_build(rc.call(self.reduce_pointer_member_access, rc.arg(0), rc.arg(2))),
@@ -301,8 +303,7 @@ class Cels2AST:
             
             ( E_TERM << SYMBOL_TERM                     ).on_build(rc.arg(0)),
             ( E_TERM << LITERAL                         ).on_build(rc.arg(0)),
-            ( E_TERM << s_lparen * E * s_rparen         ).on_build(rc.arg(1)),            
-            ( E_TERM << E_TERM * s_lparen * E_LIST * s_rparen    ).on_build(rc.call(self.reduce_call, rc.arg(0), rc.arg(2))),
+            ( E_TERM << s_lparen * E * s_rparen         ).on_build(rc.arg(1)),                        
             ( E_TERM << kw_taskstart * LAMBDA_DECL    ).on_build(rc.arg(1)),
             ( E_TERM << LAMBDA_DECL    ).on_build(rc.arg(0)),
             ( E_TERM << kw_taskready * s_lparen * E *  s_rparen).on_build(rc.arg(2)),
@@ -502,7 +503,15 @@ class Cels2AST:
                     c_args[i] = ASTNodes.TypeConvert(c_args[i], conv)
             # include lambda implementation so that it will be reachable in AST parse
             return ASTNodes.FunOverloadCall(overload, c_args, include_impl_node=True)
-    
+        
+        if callable_item.data_type==self.env.dtype_instance_method:
+            if not isinstance(callable_item, ASTNodes.MethodAccessor):
+                raise ASTException(f"Expected method accessor, got {type(callable_item)}")
+            args = [self.reduce_addressof(callable_item.element)] + args
+            arg_types = list(map(lambda a:a.data_type, args))
+            overload = self.match_function_calling_args(callable_item.method, arg_types)
+            return ASTNodes.FunOverloadCall(overload, args)
+        
         raise ASTException(f"Object of type {callable_item.data_type} is not callable.")        
         
     def match_function_calling_args(self, func:Function, arg_types:list[DataType])->FunctionOverload:
@@ -616,6 +625,12 @@ class Cels2AST:
             
             if isinstance(member, Field):
                 return ASTNodes.FieldAccessor(elem, member)
+                
+            if isinstance(member, Function):
+                if member.declaring_type is None:
+                    raise ASTException("Non-member function called on object")
+                return ASTNodes.MethodAccessor(elem, member, self.env.dtype_instance_method)
+                
             raise ASTException(f"Not implemented: member accessor of type {type(member)}")
 
         raise ASTException(f"Invalid accessor: {field_tk} for type {elem.data_type}")

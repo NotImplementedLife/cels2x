@@ -27,7 +27,6 @@ int Celstris::right_key_down() { return (bk_key_down & KEY_RIGHT)!=0;}
 
 int Celstris::down_key_held() { return (bk_key_held & KEY_DOWN)!=0;}
 
-
 unsigned short shadow_map[32*32]{};
 
 #include "scene.hpp"

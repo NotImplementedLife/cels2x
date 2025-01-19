@@ -166,9 +166,13 @@ class _AST_TypeConvert(_AST_ExpressionNode):
 
 
 class _AST_IndexAccess(_AST_ExpressionNode):
+    expression = property(ASTNode.simple_child_getter("expression"), ASTNode.simple_child_setter("expression"))    
+    key = property(ASTNode.simple_child_getter("key"), ASTNode.simple_child_setter("key"))    
     def __init__(self, expression: _AST_ExpressionNode, key:_AST_ExpressionNode, indexer:Indexer):
         ensure_type(indexer, Indexer)
         _AST_ExpressionNode.__init__(self, indexer.output_type)
+        self.register_child_key("expression")        
+        self.register_child_key("key")
         self.expression = ensure_type(expression, _AST_ExpressionNode)
         self.key = ensure_type(key, _AST_ExpressionNode)
         self.indexer = indexer
@@ -218,7 +222,7 @@ class _AST_AddressOf(_AST_ExpressionNode):
     
     def __init__(self, operand:_AST_Addressable):
         ensure_type(operand, _AST_ExpressionNode)
-        ensure_type(operand, _AST_Addressable)
+        ensure_type(operand, _AST_ExpressionNode)
         _AST_ExpressionNode.__init__(self, operand.data_type.make_pointer())
         self.register_child_key("operand")
         self.operand = operand
@@ -263,7 +267,19 @@ class _AST_FieldAccessor(_AST_ExpressionNode):
     def __str__(self): return f"({self.element}).{self.field.name}:{self.data_type}"
     
     element = property(ASTNode.simple_child_getter("element"), ASTNode.simple_child_setter("element"))
+
+class _AST_MethodAccessor(_AST_ExpressionNode):
+    def __init__(self, element: _AST_ExpressionNode, method:Function, expr_type:DataType):
+        _AST_ExpressionNode.__init__(self, ensure_type(expr_type, DataType))
+        self.register_child_key("element")
+        self._method = ensure_type(method, Function)
+        self.element = ensure_type(element, _AST_ExpressionNode)
+        
+    @property
+    def method(self): return self._method
     
+    def __str__(self): f"({self.element}).{self.function.name}"
+        
    
 class _AST_FunOverloadCall(_AST_ExpressionNode):
     args = property(ASTNode.simple_children_list_getter('args'))
@@ -362,6 +378,7 @@ class ASTNodes:
     Dereference = _AST_Dereference
     FieldDecl = _AST_FieldDecl
     FieldAccessor = _AST_FieldAccessor
+    MethodAccessor = _AST_MethodAccessor
     FunOverloadCall = _AST_FunOverloadCall
     If = _AST_If
     Return = _AST_Return

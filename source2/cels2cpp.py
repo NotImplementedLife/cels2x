@@ -523,13 +523,23 @@ class CelsEnv2Cpp:
                 snippet+=["(int)", str(node.value)]
                 return snippet
         if isinstance(node, ASTNodes.FunOverloadCall):
-            s_args = []
-            for i, arg in enumerate(node.args):
-                if i>0: s_args.append(", ")
-                s_args.append(self.__compile_ast_node(arg, prio_build))                
-            f_cpp = self.resolve_identifier(node.function_overload.func_symbol)
-            snippet += [f_cpp.full_name, "(", *s_args, ")"]
-            return snippet
+            if node.function_overload.func_symbol.is_method:
+                obj_arg = self.__compile_ast_node(node.args[0], prio_build)
+                s_args = []
+                for i, arg in enumerate(node.args[1:]):
+                    if i>0: s_args.append(", ")
+                    s_args.append(self.__compile_ast_node(arg, prio_build))
+                f_cpp = self.resolve_identifier(node.function_overload.func_symbol)
+                snippet += ["(", obj_arg, ")->", f_cpp.name, "(", *s_args, ")"]
+                return snippet
+            else:
+                s_args = []
+                for i, arg in enumerate(node.args):
+                    if i>0: s_args.append(", ")
+                    s_args.append(self.__compile_ast_node(arg, prio_build))                
+                f_cpp = self.resolve_identifier(node.function_overload.func_symbol)
+                snippet += [f_cpp.full_name, "(", *s_args, ")"]
+                return snippet
         if isinstance(node, ASTNodes.Return):
             snippet += "return"
             if node.value is not None:

@@ -6,14 +6,20 @@ begin
 	struct State
 	begin
 		var shadow_map: short[1024];
+		
+		function set_color(row:int, col:int, color:short):void
+		begin
+			shadow_map[32*row+col]=color;
+		end;
+		
 	end;
 
 	multiframe function main_loop(state: State*): void
 	begin
 		var k = 0;
 		var c = 1;
-		while 1 do begin
-			state->shadow_map[32 * (k/30) + k%30]=c;
+		while 1 do begin	
+			state->set_color(k/30, k%30, c);			
 			k = (k+1)%(30*20);
 			c = (c+1)%7;
 			suspend;
