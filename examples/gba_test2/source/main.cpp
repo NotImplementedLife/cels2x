@@ -1,33 +1,22 @@
 #include <gba.h>
 #include <stdio.h>
 
-#include "cels_stack.hpp"
-
 #define REG_NOCASH_LOG      (*(unsigned char volatile*)(0x04FFFA1C))
-
 void nogba_write_log(const char* message)
 {
 	while(*message) REG_NOCASH_LOG = *message++;
 	REG_NOCASH_LOG = '\n';
 }
 
-int cels_stack_buffer[1024]{};
-Celesta::Stack cels_stack(cels_stack_buffer, sizeof(cels_stack_buffer)/sizeof(cels_stack_buffer[0]));
+#define CELS_DEFAULTS
+#define CELS_ERROR_HANDLER ([](const char* message){ nogba_write_log(message); while(1);})
+#include "cels_stack.hpp"
 
-Celesta::ExecutionController cels_ctrl = ([]()
-{
-	auto ctrl = Celesta::ExecutionController(&cels_stack, [](){ return 0 && REG_VCOUNT>160; });
-	ctrl.error_handler = [](const char* message){
-		nogba_write_log(message);
-		while(1);
-	};
-	return ctrl;
-})();
-
+auto& cels_ctrl = Celesta::DefaultConfig::controller;
 
 #include "celstris.hpp"
 #include "cels_scripts.hpp"
-// #include "celstris.cels.hpp"
+
 
 int bk_key_down = 0;
 int bk_key_held = 0;
@@ -56,13 +45,14 @@ void draw(Celstris::GameState* state)
 	if(Celstris::down_key_held()) nogba_write_log("DOWN");
 }
 
-//void draw2(Celstris::state* state)
-
 struct Setup
-{
+{	
+	
 	inline static void draw(Celstris::State* state)
 	{
-		
+		void* map_base = ((unsigned short*)MAP_BASE_ADR(31));
+		void* shadow_data = state->shadow_map.data();
+		CpuFastSet(shadow_data, map_base, COPY32 | (state->shadow_map.length/2));
 	}
 	
 	inline static auto create_scene(Celstris::State* state)

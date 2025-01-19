@@ -96,7 +96,10 @@ namespace Celesta
 		bool must_suspend = false;
 		bool (*suspend_condition)();
 	public:
-		ExecutionController(Stack* stack, bool (*suspend_condition)() = [](){ return false; }) : stack{stack}, suspend_condition{suspend_condition} {}
+		ExecutionController(Stack* stack, 
+			bool (*suspend_condition)() = [](){ return false; },
+			void (*error_handler)(const char* message) = [](const char*){ while(1); }
+		) : stack{stack}, suspend_condition{suspend_condition}, error_handler{error_handler} {}
 		
 		void (*error_handler)(const char* message);
 		
@@ -189,7 +192,32 @@ namespace Celesta
 	public:
 		const T& operator[](int index) const { return items[index]; }
 		T& operator[](int index) { return items[index]; }
-	};
 		
+		T* data() { return &items[0]; }
+		
+		inline static constexpr int length = N;
+		inline static constexpr int array_size = N * sizeof(T);
+	};
+	
+#ifdef CELS_DEFAULTS
+	
+	#ifndef CELS_ERROR_HANDLER
+		#define CELS_ERROR_HANDLER ([](const char*){while(1);})
+	#endif
+	
+	struct DefaultConfig
+	{
+		inline static int stack_buffer[1024]{};
+		inline static Stack stack{stack_buffer, sizeof(stack_buffer)/sizeof(stack_buffer[0])};
+		
+		inline static Celesta::ExecutionController controller{
+			&stack,
+			/* suspend_condition = */ [](){ return false; },
+			/* error_handler     = */ CELS_ERROR_HANDLER
+		};
+	};
+
+#endif // CELS_DEFAULTS
+	
 	
 }

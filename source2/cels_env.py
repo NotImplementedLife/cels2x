@@ -18,6 +18,7 @@ class CelsEnvironment:
             return self.add_symbol(self.global_scope, symbol_creator)
                 
         self.dtype_int = glb_add_symbol(PrimitiveType.scoped_creator('int'))
+        self.dtype_short = glb_add_symbol(PrimitiveType.scoped_creator('short'))
         self.dtype_float = glb_add_symbol(PrimitiveType.scoped_creator('float'))
         self.dtype_bool = glb_add_symbol(PrimitiveType.scoped_creator('bool'))
         self.dtype_string = glb_add_symbol(PrimitiveType.scoped_creator('string'))
@@ -48,26 +49,36 @@ class CelsEnvironment:
         env = CelsEnvironment()      
         
         dtype_int = env.dtype_int
+        dtype_short = env.dtype_short
         dtype_bool = env.dtype_bool
-        dtype_float = env.dtype_float
+        dtype_float = env.dtype_float        
         
-        env.op_solver.register_binary_operator('+', dtype_int, dtype_int, dtype_int)
-        env.op_solver.register_binary_operator('-', dtype_int, dtype_int, dtype_int)
-        env.op_solver.register_binary_operator('*', dtype_int, dtype_int, dtype_int)
-        env.op_solver.register_binary_operator('/', dtype_int, dtype_int, dtype_int)
-        env.op_solver.register_binary_operator('%', dtype_int, dtype_int, dtype_int)
-        env.op_solver.register_binary_operator('<', dtype_int, dtype_int, dtype_bool)
-        env.op_solver.register_binary_operator('<=', dtype_int, dtype_int, dtype_bool)
-        env.op_solver.register_binary_operator('>', dtype_int, dtype_int, dtype_bool)
-        env.op_solver.register_binary_operator('>=', dtype_int, dtype_int, dtype_bool)
-        env.op_solver.register_binary_operator('==', dtype_int, dtype_int, dtype_bool)
-        env.op_solver.register_binary_operator('!=', dtype_int, dtype_int, dtype_bool)
+        def register_arithmetics(dtype, ops = None):
+            ops = ops or ['+', '-', '*', '/', '%']
+            for op in ops:
+                env.op_solver.register_binary_operator(op, dtype, dtype, dtype)            
+            
+        def register_comparisons(dtype, ops = None):
+            ops = ops or ['<', '<=', '>', '>=', '==', '!=']
+            for op in ops:
+                env.op_solver.register_binary_operator(op, dtype, dtype, dtype_bool)            
+
+        register_arithmetics(dtype_int)
+        register_arithmetics(dtype_short)
+        register_arithmetics(dtype_float)
+        
+        register_comparisons(dtype_int)
+        register_comparisons(dtype_short)
+        register_comparisons(dtype_float)
         
         env.op_solver.register_converter(dtype_int, dtype_float)
+        env.op_solver.register_converter(dtype_int, dtype_short)
+        
+        env.op_solver.register_converter(dtype_short, dtype_int)
         
         env.op_solver.register_indexer_archetype(IndexerArchetype(
             name="static_array_indexer",
-            condition=lambda E,K: E.is_static_array and K==dtype_int,
+            condition=lambda E,K: E.is_static_array and K in [dtype_int, dtype_short],
             indexer_creator=lambda A, E,K: Indexer(A, E, K, E.element_type)
         ))
         

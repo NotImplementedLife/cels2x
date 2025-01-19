@@ -83,6 +83,7 @@ class Cels2AST:
         kw_package     = rcf.terminal(CelsTokenTypes.KW_PACKAGE.name)
         kw_return      = rcf.terminal(CelsTokenTypes.KW_RETURN.name)
         kw_scope       = rcf.terminal(CelsTokenTypes.KW_SCOPE.name)
+        kw_short       = rcf.terminal(CelsTokenTypes.KW_SHORT.name)
         kw_string      = rcf.terminal(CelsTokenTypes.KW_STRING.name)
         kw_struct      = rcf.terminal(CelsTokenTypes.KW_STRUCT.name)
         kw_suspend     = rcf.terminal(CelsTokenTypes.KW_SUSPEND.name)
@@ -337,6 +338,7 @@ class Cels2AST:
             ( DATA_TYPE << kw_int                  ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             #( DATA_TYPE << kw_float                ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             ( DATA_TYPE << kw_bool                 ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
+            ( DATA_TYPE << kw_short                ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             ( DATA_TYPE << kw_string               ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             ( DATA_TYPE << kw_void                 ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             ( DATA_TYPE << SYMBOL                  ).on_build(rc.call(self.reduce_data_type_from_symbol, rc.arg(0))),

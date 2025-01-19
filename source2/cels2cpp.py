@@ -153,6 +153,7 @@ class CelsEnv2Cpp:
             return CppIdentifier(symbol, symbol.name, full_name, headers)
         
         self.identify_symbol(self.env.dtype_int, CppIdentifier(self.env.dtype_int, "int"))
+        self.identify_symbol(self.env.dtype_short, CppIdentifier(self.env.dtype_short, "short"))
         self.identify_symbol(self.env.dtype_void, CppIdentifier(self.env.dtype_void, "void"))
         
         dtype_int = self.env.dtype_int
@@ -549,6 +550,11 @@ class CelsEnv2Cpp:
             expr = self.__compile_ast_node(node.expression, prio_build)
             key = self.__compile_ast_node(node.key, prio_build)
             snippet += [expr, "[", key, "]"]
+            return snippet
+        if isinstance(node, ASTNodes.TypeConvert):
+            expr = self.__compile_ast_node(node.expression, prio_build)
+            dtype = self.resolve_data_type(node.data_type)
+            snippet += ["((", dtype, ")", "(", expr, "))"]
             return snippet
 
         return CppSnippet([f"/* Not implemented node {type(node)} */"])

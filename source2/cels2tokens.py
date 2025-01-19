@@ -44,6 +44,7 @@ class CelsTokenTypes:
     KW_PACKAGE     = CelsTokenType(__idp, "KW_PACKAGE"    , r'package')
     KW_RETURN      = CelsTokenType(__idp, "KW_RETURN"     , r'return')
     KW_SCOPE       = CelsTokenType(__idp, "KW_SCOPE"      , r'scope')
+    KW_SHORT       = CelsTokenType(__idp, "KW_SHORT"      , r'short')
     KW_STRING      = CelsTokenType(__idp, "KW_STRING"     , r'string')
     KW_STRUCT      = CelsTokenType(__idp, "KW_STRUCT"     , r'struct')
     KW_SUSPEND     = CelsTokenType(__idp, "KW_SUSPEND"    , r'suspend')
