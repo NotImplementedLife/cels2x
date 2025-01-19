@@ -18,7 +18,9 @@ class CelsEnvironment:
             return self.add_symbol(self.global_scope, symbol_creator)
                 
         self.dtype_int = glb_add_symbol(PrimitiveType.scoped_creator('int'))
+        self.dtype_uint = glb_add_symbol(PrimitiveType.scoped_creator('uint'))
         self.dtype_short = glb_add_symbol(PrimitiveType.scoped_creator('short'))
+        self.dtype_ushort = glb_add_symbol(PrimitiveType.scoped_creator('ushort'))
         self.dtype_float = glb_add_symbol(PrimitiveType.scoped_creator('float'))
         self.dtype_bool = glb_add_symbol(PrimitiveType.scoped_creator('bool'))
         self.dtype_string = glb_add_symbol(PrimitiveType.scoped_creator('string'))
@@ -51,7 +53,9 @@ class CelsEnvironment:
         dtype_int = env.dtype_int
         dtype_short = env.dtype_short
         dtype_bool = env.dtype_bool
-        dtype_float = env.dtype_float        
+        dtype_float = env.dtype_float      
+        dtype_ushort = env.dtype_ushort
+        dtype_uint = env.dtype_uint
         
         def register_arithmetics(dtype, ops = None):
             ops = ops or ['+', '-', '*', '/', '%']
@@ -75,6 +79,8 @@ class CelsEnvironment:
         env.op_solver.register_converter(dtype_int, dtype_short)
         
         env.op_solver.register_converter(dtype_short, dtype_int)
+        
+        env.op_solver.register_converter(dtype_ushort, dtype_int)
         
         env.op_solver.register_indexer_archetype(IndexerArchetype(
             name="static_array_indexer",

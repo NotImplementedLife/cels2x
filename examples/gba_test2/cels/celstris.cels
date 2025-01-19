@@ -1,8 +1,12 @@
 import "celstris_bindings.cels";
 
+extern function scanKeys():void;
+extern function keysDown():ushort;
+extern function dir_x(keys:int):int;
+extern function dir_y(keys:int):int;
+
 package Celstris
 begin
-
 	struct State
 	begin
 		var shadow_map: short[1024];
@@ -11,21 +15,45 @@ begin
 		begin
 			shadow_map[32*row+col]=color;
 		end;
-		
 	end;
-
+	
+	function clip(x:int, a:int, b:int):int 
+	begin
+		if x<a then return a; fi;
+		if x>b then return b; fi;
+		return x;
+	end;
+	
+	multiframe function npc_move(state: State*): void
+	begin
+	
+	end;
+	
 	multiframe function main_loop(state: State*): void
 	begin
-		var k = 0;
+		/* TO DO: taskstart NPC here */
+		
+		var task = taskstart lambda() => begin npc_move(state); end;
+		
+		var x = 0;
+		var y = 0;
 		var c = 1;
-		while 1 do begin	
-			state->set_color(k/30, k%30, c);			
-			k = (k+1)%(30*20);
-			c = (c+1)%7;
+		while 1 do begin
+			scanKeys();
+			var kdown = keysDown();
+			var dx = dir_x(kdown);
+			var dy = dir_y(kdown);
+			
+			state->set_color(y, x, 0);
+			
+			x = clip(x + dx, 0, 29);
+			y = clip(y + dy, 0, 19);
+			
+			state->set_color(y, x, c);
+			c = (c+1)%8;
 			suspend;
 		end;
 	end;
-	
 end;
 
 /*package Celstris

@@ -361,6 +361,17 @@ class _AST_FunctionClosure(_AST_ExpressionNode):
         return f"(lambda{flags} {self.function_overload.func_symbol.get_full_name()}[{str_captures}]=>{self.implementation})"
 
 
+class _AST_TaskStart(_AST_ExpressionNode):
+    def __init__(self, task, expr_type:DataType):
+        _AST_ExpressionNode.__init__(self, ensure_type(expr_type, DataType))
+        self.task = task
+    
+    def __str__(self):
+        return f"taskstart {self.task}"
+    
+    def clone(self):
+        return _AST_TaskStart(self.task.clone(), self.data_type)
+
 class ASTNodes:
     Block = ASTBlock
     ExpressionNode = _AST_ExpressionNode
@@ -387,3 +398,5 @@ class ASTNodes:
     Continue = _AST_Continue
     FunctionClosure = _AST_FunctionClosure
     IndexAccess = _AST_IndexAccess
+    
+    TaskStart = _AST_TaskStart

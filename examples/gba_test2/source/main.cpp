@@ -14,6 +14,20 @@ void nogba_write_log(const char* message)
 
 auto& cels_ctrl = Celesta::DefaultConfig::controller;
 
+int dir_x(int keys)
+{
+	if(keys & KEY_LEFT) return -1;
+	if(keys & KEY_RIGHT) return 1;
+	return 0;
+}
+
+int dir_y(int keys)
+{
+	if(keys & KEY_UP) return -1;
+	if(keys & KEY_DOWN) return 1;
+	return 0;
+}
+
 #include "celstris.hpp"
 #include "cels_scripts.hpp"
 

@@ -52,6 +52,8 @@ class CelsTokenTypes:
     KW_TASKREADY   = CelsTokenType(__idp, "KW_TASKREADY"  , r'taskready')    
     KW_TASKRESULT  = CelsTokenType(__idp, "KW_TASKRESULT" , r'taskresult')
     KW_THEN        = CelsTokenType(__idp, "KW_THEN"       , r'then')    
+    KW_UINT        = CelsTokenType(__idp, "KW_UINT"       , r'uint')
+    KW_USHORT      = CelsTokenType(__idp, "KW_USHORT"     , r'ushort')
     KW_VAR         = CelsTokenType(__idp, "KW_VAR"        , r'var')
     KW_VOID        = CelsTokenType(__idp, "KW_VOID"       , r'void')
     KW_WHILE       = CelsTokenType(__idp, "KW_WHILE"      , r'while')

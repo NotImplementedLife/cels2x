@@ -88,6 +88,18 @@ namespace Celesta
 
 	};
 	
+	template<typename T>
+	struct Task
+	{
+		T result;
+	};
+	
+	template<>
+	struct Task<void>
+	{
+		
+	};
+	
 	struct ExecutionController
 	{
 	private:

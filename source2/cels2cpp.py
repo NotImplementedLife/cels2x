@@ -137,6 +137,9 @@ class CelsEnv2Cpp:
             if data_type.is_static_array:
                 element_type:CppSnippet = self.resolve_data_type(data_type.element_type)
                 return CppSnippet(["Celesta::StaticArray<", element_type, ", ", str(data_type.length), ">"])
+            if data_type.is_task:
+                result_type:CppSnippet = self.resolve_data_type(data_type.result_type)
+                return CppSnippet(["Celesta::Task<", result_type, ">"])
         return self.resolve_identifier(data_type).full_name
         
     @property
@@ -153,23 +156,28 @@ class CelsEnv2Cpp:
             return CppIdentifier(symbol, symbol.name, full_name, headers)
         
         self.identify_symbol(self.env.dtype_int, CppIdentifier(self.env.dtype_int, "int"))
+        self.identify_symbol(self.env.dtype_uint, CppIdentifier(self.env.dtype_uint, "unsigned int"))
         self.identify_symbol(self.env.dtype_short, CppIdentifier(self.env.dtype_short, "short"))
+        self.identify_symbol(self.env.dtype_ushort, CppIdentifier(self.env.dtype_ushort, "unsigned short"))
         self.identify_symbol(self.env.dtype_void, CppIdentifier(self.env.dtype_void, "void"))
         
         dtype_int = self.env.dtype_int
         
         rbo = self.env.op_solver.resolve_binary_operator
-        self.binop_translator[rbo('+', dtype_int, dtype_int)] = lambda l,r: ["(", l, "+", r, ")"]
-        self.binop_translator[rbo('-', dtype_int, dtype_int)] = lambda l,r: ["(", l, "-", r, ")"]
-        self.binop_translator[rbo('*', dtype_int, dtype_int)] = lambda l,r: ["(", l, "*", r, ")"]
-        self.binop_translator[rbo('/', dtype_int, dtype_int)] = lambda l,r: ["(", l, "/", r, ")"]
-        self.binop_translator[rbo('%', dtype_int, dtype_int)] = lambda l,r: ["(", l, "%", r, ")"]
-        self.binop_translator[rbo('>', dtype_int, dtype_int)] = lambda l,r: ["(", l, ">", r, ")"]
-        self.binop_translator[rbo('>=', dtype_int, dtype_int)] = lambda l,r: ["(", l, ">=", r, ")"]
-        self.binop_translator[rbo('<=', dtype_int, dtype_int)] = lambda l,r: ["(", l, "<=", r, ")"]
-        self.binop_translator[rbo('<', dtype_int, dtype_int)] = lambda l,r: ["(", l, "<", r, ")"]
-        self.binop_translator[rbo('==', dtype_int, dtype_int)] = lambda l,r: ["(", l, "==", r, ")"]
-        self.binop_translator[rbo('!=', dtype_int, dtype_int)] = lambda l,r: ["(", l, "!=", r, ")"]
+                
+        self.binop_translator[rbo('+', dtype_int, dtype_int)] = lambda l,r: ["(", l, '+', r, ")"]
+        self.binop_translator[rbo('-', dtype_int, dtype_int)] = lambda l,r: ["(", l, '-', r, ")"]
+        self.binop_translator[rbo('*', dtype_int, dtype_int)] = lambda l,r: ["(", l, '*', r, ")"]
+        self.binop_translator[rbo('/', dtype_int, dtype_int)] = lambda l,r: ["(", l, '/', r, ")"]
+        self.binop_translator[rbo('%', dtype_int, dtype_int)] = lambda l,r: ["(", l, '%', r, ")"]
+        self.binop_translator[rbo('>', dtype_int, dtype_int)] = lambda l,r: ["(", l, '>', r, ")"]
+        self.binop_translator[rbo('>=', dtype_int, dtype_int)] = lambda l,r: ["(", l, '>=', r, ")"]
+        self.binop_translator[rbo('<', dtype_int, dtype_int)] = lambda l,r: ["(", l, '<', r, ")"]
+        self.binop_translator[rbo('<=', dtype_int, dtype_int)] = lambda l,r: ["(", l, '<=', r, ")"]
+        self.binop_translator[rbo('==', dtype_int, dtype_int)] = lambda l,r: ["(", l, '==', r, ")"]
+        self.binop_translator[rbo('!=', dtype_int, dtype_int)] = lambda l,r: ["(", l, '!=', r, ")"]
+        
+        #print([str(key) for key, _ in self.binop_translator.items()])
         
         for symbol in self.env.enumerate_symbols():            
             if isinstance(symbol, PrimitiveType): continue
@@ -249,13 +257,72 @@ class CelsEnv2Cpp:
         return CppSnippet([defi, '\n// IMPL\n', impl])
         
     def __sort_fragments(self, fragments):
-        """
         frag_dict = { frag.ref_obj:frag for frag in fragments }
-        print(list(map(str,frag_dict.keys())))
+        
         root = object()
-        dep_graph = {root:[]}
-        """
-        return fragments
+        dep_graph = {root:set()}
+        incoming_edges_count = {root:0}
+        
+        def add_dependency(x,y):
+            if not x in dep_graph: dep_graph[x] = set()
+            if not y in incoming_edges_count: incoming_edges_count[y] = 0
+            if y in dep_graph[x]: return
+            dep_graph[x].add(y)
+            incoming_edges_count[y]+=1
+        
+        def remove_dependency(x,y):            
+            dep_graph[x].remove(y)
+            incoming_edges_count[y]-=1
+            
+        def get_next_nodes(x):
+            if not x in dep_graph.keys():
+                return []
+            return list(dep_graph[x])
+        
+        def remember_dependency(deps, item):
+            if item in frag_dict.keys():
+                deps.add(item)
+            if isinstance(item, DataType):
+                if item.is_pointer or item.is_static_array or item.is_task:
+                    remember_dependency(deps, item.element_type)           
+
+        for fragment in fragments:
+            ref = fragment.ref_obj            
+            deps = set()        
+            
+            if isinstance(ref, FunctionOverload):
+                for param in ref.params:                    
+                    remember_dependency(deps, param.data_type)
+                remember_dependency(deps, ref.return_type)
+            
+            if len(deps)>0:
+                for dep in deps:
+                    add_dependency(dep, ref)
+            else:
+                add_dependency(root, ref)
+                    
+        for k, v in dep_graph.items():
+            for it in v:
+                print("D", k, it)
+        
+        # sort topologically - Kahn's algorithm
+        L = []
+        S = set([root])
+        
+        while len(S)>0:
+            n = S.pop()
+            print('n=', n)
+            L.append(n)
+            for m in get_next_nodes(n):
+                remove_dependency(n, m)
+                if incoming_edges_count[m]==0:
+                    S.add(m)
+        
+        if sum(incoming_edges_count.values())>0:
+            raise RuntimeError("__sort_fragments: cyclic dependencies")
+        
+        return [frag_dict[_] for _ in L if _!=root]
+        
         
     def __assemble_fragments(self, fragments)->tuple[CppSnippet, CppSnippet]:
         defi, impl = CppSnippet([]), CppSnippet([])
@@ -341,7 +408,7 @@ class CelsEnv2Cpp:
                 
         
         impl = CppSnippet([])
-        impl += [f"void {namespace}::", fname, f"::f{component['id']}(void* _ctx, Celesta::ExecutionController* ctrl)\n"]
+        impl += [f"void {namespace}", f"::f{component['id']}(void* _ctx, Celesta::ExecutionController* ctrl)\n"]
         impl += "{\n"
         inner_snippet = CppSnippet([])
         inner_snippet += [f"auto* ctx = (", fname, "*)_ctx;\n"]
@@ -411,7 +478,7 @@ class CelsEnv2Cpp:
         
         fdefis = []
         
-        for c in sorted(components.values(), key=lambda _:_['id']):
+        for c in sorted(components.values(), key=lambda _:_['id']):            
             f_defi, f_impl = self.__build_multiframe_component_frag(c, fun_id.name, vdecls,
                 namespace=overload.func_symbol.get_full_name())
             fdefis.append(f_defi)            
@@ -566,7 +633,9 @@ class CelsEnv2Cpp:
             dtype = self.resolve_data_type(node.data_type)
             snippet += ["((", dtype, ")", "(", expr, "))"]
             return snippet
-
+        if isinstance(node, ASTNodes.TaskStart):
+            snippet += [ self.resolve_data_type(node.data_type), "()"]
+            return snippet
         return CppSnippet([f"/* Not implemented node {type(node)} */"])
         
     def _parse_scope_tree_helper(self, scope:Scope, on_scope_enter, on_scope_exit, on_symbol_encountered):        

@@ -3,7 +3,7 @@ from grammar import NonTerminal, Terminal, Epsilon, Grammar, RuleComponent, Rule
 from lr1 import LR1Parser
 
 from cels_scope import Scope, Symbol, ScopeStack, ScopeNameProvider, ScopeResolveStrategy
-from cels_symbols import DataType, PrimitiveType, Variable, FormalParameter, Function, FunctionOverload, BinaryOperator, OperatorSolver
+from cels_symbols import DataType, PrimitiveType, Variable, FormalParameter, Function, FunctionOverload, BinaryOperator, OperatorSolver, TaskType
 from cels_symbols import StructType, Field
 from cels2tokens import CelsTokenTypes
 from cels_ast_nodes import ASTNodes, ASTBlock, ASTException
@@ -90,8 +90,9 @@ class Cels2AST:
         kw_taskstart   = rcf.terminal(CelsTokenTypes.KW_TASKSTART.name)
         kw_taskready   = rcf.terminal(CelsTokenTypes.KW_TASKREADY.name)
         kw_taskresult   = rcf.terminal(CelsTokenTypes.KW_TASKRESULT.name)        
-        
         kw_then        = rcf.terminal(CelsTokenTypes.KW_THEN.name)        
+        kw_uint        = rcf.terminal(CelsTokenTypes.KW_UINT.name)        
+        kw_ushort        = rcf.terminal(CelsTokenTypes.KW_USHORT.name)        
         kw_var         = rcf.terminal(CelsTokenTypes.KW_VAR.name)
         kw_void        = rcf.terminal(CelsTokenTypes.KW_VOID.name)
         kw_while       = rcf.terminal(CelsTokenTypes.KW_WHILE.name)
@@ -304,7 +305,7 @@ class Cels2AST:
             ( E_TERM << SYMBOL_TERM                     ).on_build(rc.arg(0)),
             ( E_TERM << LITERAL                         ).on_build(rc.arg(0)),
             ( E_TERM << s_lparen * E * s_rparen         ).on_build(rc.arg(1)),                        
-            ( E_TERM << kw_taskstart * LAMBDA_DECL    ).on_build(rc.arg(1)),
+            ( E_TERM << kw_taskstart * LAMBDA_DECL    ).on_build(rc.call(self.reduce_taskstart, rc.arg(1))),
             ( E_TERM << LAMBDA_DECL    ).on_build(rc.arg(0)),
             ( E_TERM << kw_taskready * s_lparen * E *  s_rparen).on_build(rc.arg(2)),
             ( E_TERM << kw_taskresult * s_lparen * E *  s_rparen).on_build(rc.arg(2)),
@@ -341,6 +342,8 @@ class Cels2AST:
             ( DATA_TYPE << kw_bool                 ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             ( DATA_TYPE << kw_short                ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             ( DATA_TYPE << kw_string               ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
+            ( DATA_TYPE << kw_uint                 ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
+            ( DATA_TYPE << kw_ushort               ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             ( DATA_TYPE << kw_void                 ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             ( DATA_TYPE << SYMBOL                  ).on_build(rc.call(self.reduce_data_type_from_symbol, rc.arg(0))),
             ( DATA_TYPE << DATA_TYPE * s_star      ).on_build(rc.call(self.reduce_data_type_pointer, rc.arg(0))),
@@ -368,8 +371,13 @@ class Cels2AST:
         params = [self.env.add_symbol(scope, lambda scope: FormalParameter(pname, scope, pdata_type)) for pname, pdata_type in params]
         return scope, params
         
+    def reduce_taskstart(self, task)->ASTNodes.TaskStart:
+        if isinstance(task, ASTNodes.FunctionClosure):
+            overload = task.function_overload
+            return ASTNodes.TaskStart(task, TaskType(overload.return_type))
+        return NotImplementedError()
     
-    def reduce_lambda(self, header: tuple[Scope, list[FormalParameter]], implementation:ASTNodes.Block|ASTNodes.ExpressionNode, return_type:DataType|None=None):
+    def reduce_lambda(self, header: tuple[Scope, list[FormalParameter]], implementation:ASTNodes.Block|ASTNodes.ExpressionNode, return_type:DataType|None=None)->ASTNodes.FunctionClosure:
         ensure_type(implementation, ASTNodes.Block, ASTNodes.ExpressionNode)
         ensure_type(return_type, DataType, None)
     

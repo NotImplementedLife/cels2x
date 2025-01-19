@@ -30,6 +30,9 @@ class DataType:
     @property
     def is_struct(self): return isinstance(self, StructType)
     
+    @property
+    def is_task(self): return isinstance(self, TaskType)
+    
     def make_pointer(self): return PointerType(self)
     
     def make_array(self, length): return StaticArrayType(self, length)
@@ -74,6 +77,14 @@ class PointerType(DataType):
     @property
     def element_type(self): return self._element_type
 
+
+class TaskType(DataType):
+    def __init__(self, result_type:DataType):
+        self._result_type = ensure_type(result_type, DataType)
+        DataType.__init__(self, f"task<{self.result_type}>")
+
+    @property
+    def result_type(self): return self._result_type
 
 class StructType(DataTypeSymbol):
     def __init__(self, name:str, scope:Scope):
