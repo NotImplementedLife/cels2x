@@ -1,4 +1,5 @@
 import "celstris_bindings.cels";
+import "utils.cels";
 
 extern function scanKeys():void;
 extern function keysDown():ushort;
@@ -10,11 +11,18 @@ begin
 	struct State
 	begin
 		var shadow_map: short[1024];
+		var npc_x:int;
+		var npc_y:int;
+		
+		var player_x:int;
+		var player_y:int;
+		var player_color:int;
 		
 		function set_color(row:int, col:int, color:short):void
 		begin
 			shadow_map[32*row+col]=color;
 		end;
+		
 	end;
 	
 	function clip(x:int, a:int, b:int):int 
@@ -24,15 +32,66 @@ begin
 		return x;
 	end;
 	
+	multiframe function npc_try_move_one_square(state: State*, dx:int, dy:int):void
+	begin
+		var x = state->npc_x + dx;
+		var y = state->npc_y + dy;
+		
+		while (state->player_x==x)+(state->player_y==y) == 2
+			do suspend;
+		state->npc_x = x; state->npc_y = y;
+		skip_frames(5);
+	end;
+	
+	multiframe function npc_move_x(state: State*, steps:int): void
+	begin
+		var sgn = 1;
+		if steps<0 then
+			begin
+				sgn = 0 - 1;
+				steps = 0 - steps;
+			end; 
+		fi;
+		var i = 0;
+		while i<steps do begin
+			npc_try_move_one_square(state, sgn, 0);
+			i = i+1;
+		end;
+	end;
+	
+	multiframe function npc_move_y(state: State*, steps:int): void
+	begin
+		var sgn = 1;
+		if steps<0 then 
+			begin
+				sgn = 0 - 1;
+				steps = 0-steps;
+			end; 
+		fi;
+		var i = 0;
+		while i<steps do begin
+			npc_try_move_one_square(state, 0, sgn);
+			i = i+1;
+		end;
+	end;
+	
 	multiframe function npc_move(state: State*): void
 	begin
-	
+		var L = 5;
+		state->npc_x = 5;
+		state->npc_y = 5;
+		while 1 do begin
+			npc_move_x(state, L);
+			npc_move_y(state, L);
+			npc_move_x(state, 0-L);
+			npc_move_y(state, 0-L);
+		end;		
 	end;
 	
 	multiframe function main_loop(state: State*): void
 	begin
 		/* TO DO: taskstart NPC here */
-		
+		/* npc_move(state); */
 		var task = taskstart lambda() => begin npc_move(state); end;
 		
 		var x = 0;
@@ -44,12 +103,12 @@ begin
 			var dx = dir_x(kdown);
 			var dy = dir_y(kdown);
 			
-			state->set_color(y, x, 0);
-			
 			x = clip(x + dx, 0, 29);
 			y = clip(y + dy, 0, 19);
-			
-			state->set_color(y, x, c);
+
+			state->player_x = x;
+			state->player_y = y;
+			state->player_color = c;
 			c = (c+1)%8;
 			suspend;
 		end;

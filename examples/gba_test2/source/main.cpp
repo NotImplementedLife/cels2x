@@ -63,9 +63,11 @@ struct Setup
 	
 	inline static void draw(Celstris::State* state)
 	{
-		void* map_base = ((unsigned short*)MAP_BASE_ADR(31));
+		unsigned short* map_base = ((unsigned short*)MAP_BASE_ADR(31));
 		void* shadow_data = state->shadow_map.data();
 		CpuFastSet(shadow_data, map_base, COPY32 | (state->shadow_map.length/2));
+		map_base[state->npc_y*32 + state->npc_x] = 0x06;
+		map_base[state->player_y*32 + state->player_x] = state->player_color;
 	}
 	
 	inline static auto create_scene(Celstris::State* state)
@@ -121,6 +123,8 @@ int main(void) {
 	SetMode(MODE_0 | BG0_ON);
 	
 	Celstris::State state;
+	state.npc_x = state.npc_y = 0;
+	state.player_x = state.player_y = 0;
 	
 	Setup::create_scene(&state)
 		.init()
