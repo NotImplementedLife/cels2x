@@ -1,6 +1,6 @@
 from __future__ import annotations
 from cels_scope import Scope, Symbol, ScopeStack, ScopeNameProvider, ScopeResolveStrategy
-from cels_symbols import Variable, FormalParameter, Function, FunctionOverload, BinaryOperator
+from cels_symbols import Variable, FormalParameter, Function, FunctionOverload, BinaryOperator, IndexerArchetype, Indexer
 from cels_symbols import OperatorSolver
 from cels_symbols import DataType, PrimitiveType, StructType, Field
 from utils import IdProvider
@@ -64,6 +64,12 @@ class CelsEnvironment:
         env.op_solver.register_binary_operator('!=', dtype_int, dtype_int, dtype_bool)
         
         env.op_solver.register_converter(dtype_int, dtype_float)
+        
+        env.op_solver.register_indexer_archetype(IndexerArchetype(
+            name="static_array_indexer",
+            condition=lambda E,K: E.is_static_array and K==dtype_int,
+            indexer_creator=lambda A, E,K: Indexer(A, E, K, E.element_type)
+        ))
         
         return env
     

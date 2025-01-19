@@ -1,5 +1,5 @@
 from ast_base import ASTNode, ASTBlock, ASTSimpleInstruction
-from cels_symbols import DataType, Variable, BinaryOperator, FormalParameter, Function, TypeConverter, FunctionOverload, Field
+from cels_symbols import DataType, Variable, BinaryOperator, FormalParameter, Function, TypeConverter, FunctionOverload, Field, Indexer
 from cels_scope import Scope, Symbol
 from utils import ensure_type, indent
 
@@ -164,6 +164,18 @@ class _AST_TypeConvert(_AST_ExpressionNode):
     def __str__(self): return f"conv({self.expression}, {self.data_type})"
     def clone(self): return _AST_TypeConvert(self.expression.clone(), self.converter)
 
+
+class _AST_IndexAccess(_AST_ExpressionNode):
+    def __init__(self, expression: _AST_ExpressionNode, key:_AST_ExpressionNode, indexer:Indexer):
+        ensure_type(indexer, Indexer)
+        _AST_ExpressionNode.__init__(self, indexer.output_type)
+        self.expression = ensure_type(expression, _AST_ExpressionNode)
+        self.key = ensure_type(key, _AST_ExpressionNode)
+        self.indexer = indexer
+    
+    def __str__(self):  return f"(({self.expression})[f{self.key}])"
+    def clone(self): return _AST_IndexAccess(self.expression.clone(), self.key.clone(), indexer)
+
 class _AST_FuncDecl(ASTNode):    
     
     implementation = property(ASTNode.simple_child_getter("implementation"), ASTNode.simple_child_setter("implementation"))
@@ -252,6 +264,7 @@ class _AST_FieldAccessor(_AST_ExpressionNode):
     
     element = property(ASTNode.simple_child_getter("element"), ASTNode.simple_child_setter("element"))
     
+   
 class _AST_FunOverloadCall(_AST_ExpressionNode):
     args = property(ASTNode.simple_children_list_getter('args'))
     impl_ref = property(ASTNode.simple_child_getter('impl_ref'), ASTNode.simple_child_setter('impl_ref'))
@@ -356,3 +369,4 @@ class ASTNodes:
     Break = _AST_Break
     Continue = _AST_Continue
     FunctionClosure = _AST_FunctionClosure
+    IndexAccess = _AST_IndexAccess

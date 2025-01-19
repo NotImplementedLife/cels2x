@@ -74,7 +74,7 @@ int main(void) {
 	{
 		unsigned int f = 0x11111111 * i;
 		CpuFastSet(&f, (char*)MAP_BASE_ADR(0)+i*(0x20), FILL | COPY32 | (0x10/2));
-	}
+	};
 	
 	// clear screen map with tile 0 ('space' tile) (256x256 halfwords)
 	*((u32*)MAP_BASE_ADR(31)) = 0;

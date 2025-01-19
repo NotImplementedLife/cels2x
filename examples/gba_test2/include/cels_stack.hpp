@@ -179,6 +179,17 @@ namespace Celesta
 			jump(return_ctx);			
 		}
 	};
+	
+	
+	template<typename T, int N>
+	struct StaticArray
+	{
+	private:
+		T items[N];
+	public:
+		const T& operator[](int index) const { return items[index]; }
+		T& operator[](int index) { return items[index]; }
+	};
 		
 	
 }

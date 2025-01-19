@@ -56,6 +56,25 @@ void draw(Celstris::GameState* state)
 	if(Celstris::down_key_held()) nogba_write_log("DOWN");
 }
 
+//void draw2(Celstris::state* state)
+
+struct Setup
+{
+	inline static void draw(Celstris::State* state)
+	{
+		
+	}
+	
+	inline static auto create_scene(Celstris::State* state)
+	{
+		return Scene<
+			Celstris::State,
+			Setup::draw, Celstris::main_loop, VBlankIntrWait
+		>(state, &cels_ctrl);
+	}
+};
+	
+
 int main(void) {
 	irqInit();
 	irqEnable(IRQ_VBLANK);	
@@ -98,16 +117,11 @@ int main(void) {
 	BGCTRL[0] = SCREEN_BASE(31);
 	SetMode(MODE_0 | BG0_ON);
 	
-	(Scene<
-		Celstris::GameState,
-		draw,
-		Celstris::main_loop,
-		VBlankIntrWait
-		>(
-			&game_state, &cels_ctrl
-		)
-	).init()
-	 .run();
+	Celstris::State state;
+	
+	Setup::create_scene(&state)
+		.init()
+		.run();
 	
 	nogba_write_log("Done.");
 	while(1) 

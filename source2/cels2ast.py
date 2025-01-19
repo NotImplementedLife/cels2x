@@ -291,6 +291,7 @@ class Cels2AST:
             
             ( E_F << E_F * s_dot * t_id ).on_build(rc.call(self.reduce_member_access, rc.arg(0), rc.arg(2))),
             ( E_F << E_F * s_lrarrow * t_id ).on_build(rc.call(self.reduce_pointer_member_access, rc.arg(0), rc.arg(2))),
+            ( E_F << E_F * s_lbrack * E * s_rbrack ).on_build(rc.call(self.reduce_index_access, rc.arg(0), rc.arg(2))),
             ( E_F << E_P ).on_build(rc.arg(0)),
             
             ( E_P << s_ampersand * E_P).on_build(rc.call(self.reduce_addressof, rc.arg(1))),
@@ -340,6 +341,7 @@ class Cels2AST:
             ( DATA_TYPE << kw_void                 ).on_build(rc.call(self.reduce_data_type_from_token, rc.arg(0))),
             ( DATA_TYPE << SYMBOL                  ).on_build(rc.call(self.reduce_data_type_from_symbol, rc.arg(0))),
             ( DATA_TYPE << DATA_TYPE * s_star      ).on_build(rc.call(self.reduce_data_type_pointer, rc.arg(0))),
+            ( DATA_TYPE << DATA_TYPE * s_lbrack * literal_int * s_rbrack).on_build(rc.call(self.reduce_data_type_array, rc.arg(0), rc.arg(2))),
             
             
             ( NAMED_SCOPE_PUSH << eps                ).on_build(rc.call(self.reduce_named_scope_push)),
@@ -594,6 +596,10 @@ class Cels2AST:
         
         return func_overload
         
+    def reduce_index_access(self, expr:ASTNodes.ExpressionNode, key:ASTNodes.ExpressionNode):
+        indexer = self.env.op_solver.resolve_indexer(expr.data_type, key.data_type)
+        return ASTNodes.IndexAccess(expr, key, indexer)
+        
     def reduce_pointer_member_access(self, elem:ASTNodes.ExpressionNode, field_tk:LexicalToken|str)->ASTNodes.ExpressionNode:
         deref = self.reduce_dereference(elem)
         return self.reduce_member_access(deref, field_tk)
@@ -671,6 +677,9 @@ class Cels2AST:
         type_scope.associated_symbol = type_symbol
         type_symbol.inner_scope = type_scope
         return type_symbol
+    
+    def reduce_data_type_array(self, data_type:DataType, length:LexicalToken):
+        return data_type.make_array(self.reduce_int_literal(length).value)
     
     def reduce_data_type_pointer(self, data_type:DataType)->DataType:
         return data_type.make_pointer()

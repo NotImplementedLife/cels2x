@@ -2,9 +2,16 @@ import "celstris_bindings.cels";
 
 package Celstris
 begin
-	multiframe function main_loop(gs: void*): void 
+
+	struct State
 	begin
-	
+		var shadow_map: int[32][32];
+		
+	end;
+
+	multiframe function main_loop(state: State*): void 
+	begin
+		state->shadow_map[0][0]=1;
 	end;
 end;
 

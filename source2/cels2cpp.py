@@ -134,6 +134,9 @@ class CelsEnv2Cpp:
             if data_type.is_pointer:
                 element_type:CppSnippet = self.resolve_data_type(data_type.element_type)
                 return CppSnippet([element_type, "*"])
+            if data_type.is_static_array:
+                element_type:CppSnippet = self.resolve_data_type(data_type.element_type)
+                return CppSnippet(["Celesta::StaticArray<", element_type, ", ", str(data_type.length), ">"])
         return self.resolve_identifier(data_type).full_name
         
     @property
@@ -301,7 +304,8 @@ class CelsEnv2Cpp:
                 sid = verbatim_local_symbol_id(var)                
                 self.identify_symbol(var, sid)
                 # print("PRIO_BUILD VAR_DECL ", var, sid)
-                vdecls += [self.resolve_identifier(var.data_type).full_name, " ", sid.name, ";\n"]                
+                #vdecls += [self.resolve_identifier(var.data_type).full_name, " ", sid.name, ";\n"]                
+                vdecls += [self.resolve_data_type(var.data_type), " ", sid.name, ";\n"]                
                 return CppSnippet([""])
             if isinstance(ast_node, ASTNodes.Suspend):
                 return CppSnippet(["ctrl->suspend();\n"])
@@ -350,7 +354,7 @@ class CelsEnv2Cpp:
                 inner_snippet += ["if(",cond,")\n", f"    goto L_{node.next_nodes[1].node_id}; else goto L_{node.next_nodes[0].node_id};\n"]                
             elif node.node_type=='i':
                 if node.ast is not None:      
-                    inner_snippet += [self.__compile_ast_node(node.ast, prio_build), "\n"]                    
+                    inner_snippet += [self.__compile_ast_node(node.ast, prio_build), ";\n"]                    
                 if len(node.next_nodes)>0:
                     inner_snippet += [f"goto L_{node.next_nodes[0].node_id};\n"]
                 else:
@@ -393,7 +397,7 @@ class CelsEnv2Cpp:
                 d = self.resolve_data_type(param.data_type)
                 p = self.resolve_identifier(param)
                 inner_snippet += [CppSnippet([d, " ", p.name, ";"]).indent(), "\n"]
-            inner_snippet+= ["} params;\n"]
+            inner_snippet+= ["} params;\n\n"]
         
         if overload.return_type != self.env.dtype_void:
             inner_snippet+= [ret_type_id, " ", "return_value;\n"]
@@ -409,13 +413,14 @@ class CelsEnv2Cpp:
         for c in sorted(components.values(), key=lambda _:_['id']):
             f_defi, f_impl = self.__build_multiframe_component_frag(c, fun_id.name, vdecls,
                 namespace=overload.func_symbol.get_full_name())
-            fdefis.append(f_defi.indent())
-            fdefis.append("\n")
+            fdefis.append(f_defi)            
             impl += f_impl            
         
-        defi += inner_snippet.indent()
-        defi += vdecls
-        defi += fdefis
+        
+        inner_snippet += vdecls
+        inner_snippet += fdefis
+        
+        defi += inner_snippet.indent()        
         defi += "\n};\n"
 
         print(fragment)
@@ -539,6 +544,11 @@ class CelsEnv2Cpp:
             return snippet
         if isinstance(node, ASTNodes.AddressOf):
             snippet += ["&(", self.__compile_ast_node(node.operand, prio_build), ")"]
+            return snippet
+        if isinstance(node, ASTNodes.IndexAccess):
+            expr = self.__compile_ast_node(node.expression, prio_build)
+            key = self.__compile_ast_node(node.key, prio_build)
+            snippet += [expr, "[", key, "]"]
             return snippet
 
         return CppSnippet([f"/* Not implemented node {type(node)} */"])

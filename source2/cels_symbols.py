@@ -32,6 +32,8 @@ class DataType:
     
     def make_pointer(self): return PointerType(self)
     
+    def make_array(self, length): return StaticArrayType(self, length)
+    
 
 class DataTypeSymbol(Symbol, DataType):
     def __init__(self, name:str, scope:Scope):
