@@ -1,0 +1,60 @@
+import "celstris_bindings.cels";
+
+package Celstris
+begin
+	multiframe function main_loop(gs: void*): void 
+	begin
+	
+	end;
+end;
+
+/*package Celstris
+begin
+	multiframe function process_user_input(gs: GameState*, piece:Piece*):void
+	begin
+		var i=0;	
+		while i<10 do
+		begin
+			var dx = 0;
+			if left_key_down()!=0 then dx = 0-1; end;
+			if right_key_down()!=0 then dx = 1; end;
+			
+			if dx!=0 then
+				GameState_piece_move_if_possible(gs, piece, dx, 0);
+			end;
+			
+			if down_key_held()!=0 then 
+				GameState_piece_move_if_possible(gs, piece, 0, 1);
+			end;
+			
+			i=i+1;
+			suspend;
+		end;
+	end;
+	
+	multiframe function main_loop(gs: GameState*): void 
+	begin
+		var running = 1;
+		while running>0 do
+		begin
+			var piece = GameState_generate_random_piece(gs);
+			if GameState_test_piece(gs, piece)>0
+			then begin
+				var falling_down = 1;
+				while falling_down>0 do begin
+					process_user_input(gs, piece);
+					if GameState_piece_move_if_possible(gs, piece, 0, 1)==0 then 
+						falling_down = 0;
+					end;				
+				end;
+				GameState_place_piece(gs, piece);
+			end;
+			else begin
+				GameState_reset(gs);
+			end; end;
+			
+
+		end;
+	end;		
+
+end;*/

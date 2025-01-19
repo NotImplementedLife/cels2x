@@ -10,8 +10,11 @@ from cels_ast_nodes import ASTNodes, ASTBlock, ASTException
 from cels_env import CelsEnvironment
 from utils import ensure_type
 
+from cels2tokens import CelsLexer
+
 class Cels2AST:
-    def __init__(self, cels_env:CelsEnvironment|None = None, lr1_path=None):
+    def __init__(self, cels_env:CelsEnvironment|None = None, lr1_path=None,
+        lexer:CelsLexer|None=None):
         self.env = cels_env or CelsEnvironment.create_default()
             
         self.scope_stack = ScopeStack(self.env.global_scope)        
@@ -25,6 +28,11 @@ class Cels2AST:
         if lr1_path is None:
             self.parser.analysis_table.save("cels_lr1_at.txt")
         
+        def default_import_solver(path):
+            raise NotImplementedError("Imports are not implemented")
+        
+        self.import_solver:callable[[str], ASTNode] = default_import_solver
+        self.lexer = lexer or CelsLexer()
         
     def parse_tokens(self, tokens, verbose=False, debug=True):
         print(tokens)
@@ -40,6 +48,10 @@ class Cels2AST:
         ast = self.post_process(ast)
         return ast
         #return self.post_process(ast)
+        
+    def build_ast(self, code:str):        
+        tokens = self.lexer.parse(code)['tokens']
+        return self.parse_tokens(tokens)
     
     def __create_grammar(self):
         self.rcf = rcf = RuleComponentFactory(on_match=lambda val, token: val == token.token_type)
@@ -196,6 +208,8 @@ class Cels2AST:
             # Package decl
             ( STMT << kw_package * ID_DEFINES_SCOPE * NAMED_SCOPE_PUSH * kw_begin * STMT_BLOCK * kw_end * SCOPE_POP)
                 .on_build(rc.call(self.reduce_package, rc.arg(1), rc.arg(4), rc.arg(6))),            
+                
+            ( STMT << kw_import * literal_str).on_build(rc.call(self.reduce_import, rc.arg(1))),
                 
             # Function decl
             ( STMT << FUNC_HEADER * kw_begin * STMT_BLOCK * kw_end * SCOPE_POP).on_build(rc.call(self.reduce_func_decl, rc.arg(0), rc.arg(2))),
@@ -545,6 +559,7 @@ class Cels2AST:
     def reduce_struct_method_header(self, name_tk:LexicalToken, params:list[tuple[str, DataType]], ret_type:DataType, specs=None)-> FunctionOverload:
         _, struct_type = self.current_struct_context()
         params = [("this", struct_type.make_pointer())] + params
+        print(params)
         overload = self.reduce_func_header(name_tk, params, ret_type, specs, struct_type)
         
         struct_type.add_member(overload.func_symbol)
@@ -579,21 +594,23 @@ class Cels2AST:
         
         return func_overload
         
-    def reduce_pointer_member_access(self, elem:ASTNodes.ExpressionNode, field_tk:LexicalToken)->ASTNodes.ExpressionNode:
+    def reduce_pointer_member_access(self, elem:ASTNodes.ExpressionNode, field_tk:LexicalToken|str)->ASTNodes.ExpressionNode:
         deref = self.reduce_dereference(elem)
         return self.reduce_member_access(deref, field_tk)
         
-    def reduce_member_access(self, elem:ASTNodes.ExpressionNode, field_tk:LexicalToken)->ASTNodes.ExpressionNode:
+    def reduce_member_access(self, elem:ASTNodes.ExpressionNode, field_tk:LexicalToken|str)->ASTNodes.ExpressionNode:
+        if isinstance(field_tk, LexicalToken):
+            field_tk = field_tk.value
         if elem.data_type.is_struct:
             struct_type = ensure_type(elem.data_type, StructType)
             
-            member = struct_type.inner_scope.resolve_symbol(field_tk.value)
+            member = struct_type.inner_scope.resolve_symbol(field_tk)
             
             if isinstance(member, Field):
                 return ASTNodes.FieldAccessor(elem, member)
             raise ASTException(f"Not implemented: member accessor of type {type(member)}")
 
-        raise ASTException(f"Invalid accessor: {field_tk.value} for type {elem.data_type}")
+        raise ASTException(f"Invalid accessor: {field_tk} for type {elem.data_type}")
         
     
     def reduce_cpp_include(self, lit_string:LexicalToken)->tuple:
@@ -611,17 +628,17 @@ class Cels2AST:
         custom_data_type:DataType|None = None
         
         if isinstance(symbol, Function):
-            custom_data_type = self.env.dtype_function 
+            custom_data_type = self.env.dtype_function
+        
+        if isinstance(symbol, Field):
+            this = self.reduce_symbol_term(self.current_scope().try_resolve_immediate_symbol("this"))
+            return self.reduce_pointer_member_access(this, symbol.name)
         
         return ASTNodes.SymbolTerm(symbol, custom_data_type)
     
     def reduce_assign(self, left:ASTNodes.ExpressionNode, right:ASTNodes.ExpressionNode)->ASTNodes.Assign:
         ensure_type(left, ASTNodes.ExpressionNode)
-        ensure_type(right, ASTNodes.ExpressionNode)
-        print("__________________")
-        print(left.data_type)
-        print(right.data_type)
-        print("__________________")
+        ensure_type(right, ASTNodes.ExpressionNode)        
         if left.data_type != right.data_type:
             converter = self.env.op_solver.resolve_converter(right.data_type, left.data_type)
             right = ASTNodes.TypeConvert(right, converter)
@@ -633,6 +650,10 @@ class Cels2AST:
         ensure_type(op_token, LexicalToken)
         operator = self.env.op_solver.resolve_binary_operator(op_token.value, arg1.data_type, arg2.data_type)
         return ASTNodes.BinaryOperator(operator, arg1, arg2)
+        
+    def reduce_import(self, path_tk: LexicalToken):
+        path = self.reduce_string_literal(path_tk).value
+        return self.import_solver(path) or self.reduce_block([])
     
     def reduce_package(self, name_token:LexicalToken, block:ASTNodes.Block, scope:Scope):
         scope.metadata['type']='package'

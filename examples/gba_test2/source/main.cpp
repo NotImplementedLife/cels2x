@@ -101,7 +101,7 @@ int main(void) {
 	(Scene<
 		Celstris::GameState,
 		draw,
-		Celstris::main_loop_mf,
+		Celstris::main_loop,
 		VBlankIntrWait
 		>(
 			&game_state, &cels_ctrl

@@ -1,22 +1,32 @@
+import "./_test2.cels";
+
 package A begin
-	multiframe function f(x:int):int begin
-		return x;
+	function gcd(a:int, b:int):int 
+	begin
+		while b>0 do begin
+			var r = a%b; a = b; b = r;
+			suspend;
+		end;
+		return a;
 	end;
-
-	multiframe function main():int begin
-		var y=7;
-		return (lambda () => (f(2)+y))();
+	
+	
+	function gcd(a:int, b:int, c:int):int 
+	begin
+		return gcd(a, gcd(b,c));
 	end;
+	
+	struct X begin
+		var a:int; 	
+		var b:int;
+	end;
+end;
 
-	/*multiframe function main():int begin
-		var x:int = 2;
-		var q = (lambda (y:int):int => 
-			begin 
-				var z = f(x+y);
-				return z;
-			end)(2);
-		return q;
-	end;*/
+function main():int begin
+	var y=sum(35, 7);	
+	return (lambda () => 
+		( A::gcd(y, 49) )
+	)();
 end;
 
 /*package A begin
