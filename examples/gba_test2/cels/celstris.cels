@@ -2,7 +2,7 @@ import "celstris_bindings.cels";
 import "utils.cels";
 
 extern function scanKeys():void;
-extern function keysDown():ushort;
+extern function keysDown2():ushort;
 extern function dir_x(keys:int):int;
 extern function dir_y(keys:int):int;
 
@@ -43,7 +43,7 @@ begin
 		skip_frames(5);
 	end;
 	
-	multiframe function npc_move_x(state: State*, steps:int): void
+	multiframe function npc_move_x(state: State*, steps:int): int
 	begin
 		var sgn = 1;
 		if steps<0 then
@@ -57,6 +57,7 @@ begin
 			npc_try_move_one_square(state, sgn, 0);
 			i = i+1;
 		end;
+		return 17;
 	end;
 	
 	multiframe function npc_move_y(state: State*, steps:int): void
@@ -78,10 +79,11 @@ begin
 	multiframe function npc_move(state: State*): void
 	begin
 		var L = 5;
+		var w = 0;
 		state->npc_x = 5;
 		state->npc_y = 5;
 		while 1 do begin
-			npc_move_x(state, L);
+			w = npc_move_x(state, L);
 			npc_move_y(state, L);
 			npc_move_x(state, 0-L);
 			npc_move_y(state, 0-L);
@@ -98,8 +100,8 @@ begin
 		var y = 0;
 		var c = 1;
 		while 1 do begin
-			scanKeys();
-			var kdown = keysDown();
+			/*scanKeys();*/
+			var kdown = keysDown2();
 			var dx = dir_x(kdown);
 			var dy = dir_y(kdown);
 			

@@ -35,6 +35,11 @@ int dir_y(int keys)
 int bk_key_down = 0;
 int bk_key_held = 0;
 
+unsigned short keysDown2()
+{
+	return bk_key_down;
+}
+
 int Celstris::left_key_down() { return (bk_key_down & KEY_LEFT)!=0;}
 
 int Celstris::right_key_down() { return (bk_key_down & KEY_RIGHT)!=0;}
@@ -126,9 +131,30 @@ int main(void) {
 	state.npc_x = state.npc_y = 0;
 	state.player_x = state.player_y = 0;
 	
-	Setup::create_scene(&state)
-		.init()
-		.run();
+	Celesta::CelsRuntime<4> cels_runtime;
+	
+	auto* ctrl = cels_runtime.main_ctrl();
+	
+	auto* frame = ctrl->push<Celstris::main_loop>();
+	frame->params.state = &state;
+	ctrl->call(frame, Celstris::main_loop::f0, nullptr, nullptr);
+	
+	auto* ctrl2 = cels_runtime.find_free_controller();
+	auto* frame2 = ctrl->push<Celstris::npc_move>();
+	frame2->params.state = &state;
+	ctrl2->call(frame2, Celstris::npc_move::f0, nullptr, nullptr);
+	
+	while(1)
+	{
+		VBlankIntrWait();		
+		Setup::draw(&state);
+		scanKeys();
+		bk_key_down = keysDown();
+		if(!cels_runtime.run_step())
+			break;		
+	}
+	
+	//Setup::create_scene(&state).init().run();
 	
 	nogba_write_log("Done.");
 	while(1) 
