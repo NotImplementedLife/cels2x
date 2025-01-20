@@ -215,7 +215,7 @@ namespace Celesta
 		{
 			if(runtime==nullptr)
 				return error<ExecutionController*>("No runtime set");
-			if(find_free_controller_handler)
+			if(find_free_controller_handler==nullptr)
 				return error<ExecutionController*>("No find controller handler set");
 			return find_free_controller_handler(runtime);
 		}
@@ -224,15 +224,22 @@ namespace Celesta
 		{
 			if(runtime==nullptr)
 				error<void>("No runtime set");
-			if(find_free_controller_handler)
+			if(release_controller_handler==nullptr)
 				error<void>("No release controller handler set");
 			release_controller_handler(runtime, this);
 		}
 	};
-	
+		
 	struct TaskState
 	{
 		ExecutionController* ctrl;
+		
+		void init(ExecutionController* launching_controller)
+		{
+			ctrl = launching_controller->find_free_controller();
+		}
+		
+		
 	};
 	
 	template<typename T>
@@ -240,12 +247,32 @@ namespace Celesta
 	{
 		TaskState state;
 		T result;
+		
+		template<typename PF, typename MF>
+		Task& init(ExecutionController* launching_controller, PF* launching_ctx, void (*set_params)(PF*, MF*)=[](PF*, MF*){})
+		{
+			state.init(launching_controller);
+			auto* task_ctx = state.ctrl->push<MF>();
+			set_params(launching_ctx, task_ctx);
+			state.ctrl->call(task_ctx, MF::f0, nullptr, nullptr);
+			return *this;
+		}
 	};
 	
 	template<>
 	struct Task<void>
 	{
 		TaskState state;
+		
+		template<typename PF, typename MF>
+		Task& init(ExecutionController* launching_controller, PF* launching_ctx, void (*set_params)(PF*, MF*)=[](PF*, MF*){})
+		{
+			state.init(launching_controller);
+			auto* task_ctx = state.ctrl->push<MF>();
+			set_params(launching_ctx, task_ctx);
+			state.ctrl->call(task_ctx, MF::f0, nullptr, nullptr);
+			return *this;
+		}
 	};
 	
 	template<typename T>

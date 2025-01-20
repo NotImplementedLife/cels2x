@@ -350,6 +350,8 @@ class _AST_FunctionClosure(_AST_ExpressionNode):
     @property
     def function_overload(self): return self._function_overload
     
+    def free_params(self): return self.function_overload.params[len(self.captured_args):]
+    
     def __str__(self):
         str_captures = ', '.join([str(arg) for arg in self.captured_args])
         flags = []

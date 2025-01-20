@@ -78,22 +78,19 @@ begin
 	
 	multiframe function npc_move(state: State*): void
 	begin
-		var L = 5;
-		var w = 0;
+		var L = 5;		
 		state->npc_x = 5;
 		state->npc_y = 5;
 		while 1 do begin
-			w = npc_move_x(state, L);
+			npc_move_x(state, L);
 			npc_move_y(state, L);
-			npc_move_x(state, 0-L);
+			npc_move_x(state, 0-L); 
 			npc_move_y(state, 0-L);
-		end;		
+		end;
 	end;
 	
 	multiframe function main_loop(state: State*): void
-	begin
-		/* TO DO: taskstart NPC here */
-		/* npc_move(state); */
+	begin		
 		var task = taskstart lambda() => begin npc_move(state); end;
 		
 		var x = 0;

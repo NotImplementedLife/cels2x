@@ -367,6 +367,7 @@ class CelsEnv2Cpp:
 
     def __build_multiframe_component_frag(self, component, fname, vdecls, namespace)->tuple[CppSnippet, CppSnippet]:
         def prio_build(ast_node)->CppSnippet|None:
+            print("PRIO_BUILD", type(ast_node))
             nonlocal vdecls
             if isinstance(ast_node, ASTNodes.VDecl):
                 def verbatim_local_symbol_id(param):
@@ -402,6 +403,40 @@ class CelsEnv2Cpp:
                     snippet += [ "{\n", f"\tauto* f = ctrl->peek<",func_name,">();\n", "\t", self.__compile_ast_node(ast_node.result_lhs, prio_build), " = f->return_value;\n", "}\n" ]
                 snippet += ["ctrl->pop();\n"]
                 return snippet
+            if isinstance(ast_node, ASTNodes.TaskStart):
+                snippet = CppSnippet([])
+                #func_name = self.resolve_identifier(func.func_symbol).full_name
+                func_name = f"{namespace}"
+                assert ast_node.data_type.is_task
+                if isinstance(ast_node.task, ASTNodes.FunctionClosure):
+                    closure = ast_node.task
+                    if len(closure.free_params())>0:
+                        raise RuntimeError(f'Cannot launch task with unbonund arguments')
+                    
+                    ov_name = self.resolve_identifier(closure.function_overload.func_symbol).full_name
+                    
+                    set_params_lambda = CppSnippet(["[](", func_name, "* ctx, ", ov_name, "* mfctx) {"])
+                    
+                    for i, arg in enumerate(closure.captured_args):
+                        fparam = closure.function_overload.params[i]
+                        carg = self.__compile_ast_node(arg, prio_build)
+                        set_params_lambda+= ["mfctx->params.", fparam.name, " = ", carg, ";"]
+                        print(fparam)
+                        print(arg)                
+                    
+                    set_params_lambda += "}"
+                    
+                    snippet += [ self.resolve_data_type(ast_node.data_type), "()"]
+                    snippet += [ ".init<", func_name, ", ", ov_name , ">(ctrl, ctx, ", set_params_lambda, ")"]
+                    
+                    return snippet
+                else:
+                    raise RuntimeError(f'Taskstart currently only supports function closures, found {type(ast_node.task)}')
+                
+                
+                snippet += [ self.resolve_data_type(node.data_type), "()"]
+                return snippet
+                
             return None
         
         defi = CppSnippet([])
@@ -637,14 +672,12 @@ class CelsEnv2Cpp:
             snippet += ["((", dtype, ")", "(", expr, "))"]
             return snippet
         if isinstance(node, ASTNodes.TaskStart):
-            snippet += [ self.resolve_data_type(node.data_type), "()"]
-            return snippet
+            raise RuntimeError("Wrong route, should have been multiframe prio_build")
+        
         return CppSnippet([f"/* Not implemented node {type(node)} */"])
         
     def _parse_scope_tree_helper(self, scope:Scope, on_scope_enter, on_scope_exit, on_symbol_encountered):        
         if on_scope_enter(scope):
-            #print([(s, s.metadata) for s in scope.enumerate_symbols(recursive=False)])
-                        
             for symbol in sorted(scope.enumerate_symbols(recursive=False), key=lambda s:s.metadata['sid']):
                 on_symbol_encountered(symbol)
             for subscope in scope.enumerate_subscopes():            

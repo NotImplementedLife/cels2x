@@ -132,6 +132,7 @@ int main(void) {
 	state.player_x = state.player_y = 0;
 	
 	Celesta::CelsRuntime<4> cels_runtime;
+	cels_runtime.set_error_handler(CELS_ERROR_HANDLER);
 	
 	auto* ctrl = cels_runtime.main_ctrl();
 	
@@ -139,10 +140,10 @@ int main(void) {
 	frame->params.state = &state;
 	ctrl->call(frame, Celstris::main_loop::f0, nullptr, nullptr);
 	
-	auto* ctrl2 = cels_runtime.find_free_controller();
+	/*auto* ctrl2 = cels_runtime.find_free_controller();
 	auto* frame2 = ctrl->push<Celstris::npc_move>();
 	frame2->params.state = &state;
-	ctrl2->call(frame2, Celstris::npc_move::f0, nullptr, nullptr);
+	ctrl2->call(frame2, Celstris::npc_move::f0, nullptr, nullptr);*/
 	
 	while(1)
 	{
