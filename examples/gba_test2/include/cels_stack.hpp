@@ -104,6 +104,24 @@ namespace Celesta
 			while(*name) REG_NOCASH_LOG = *name++;
 		REG_NOCASH_LOG = '\n';
 	}
+	
+	static const char* const hex_str = "0123456789ABCDEF";
+	
+	void debug_offset(const char* message, const void* x)
+	{		
+		unsigned n = (unsigned)x;
+		char c[17]{};
+		char *it = &c[16];
+		*--it = '\0';
+		
+		for(int i=0;i<8;i++)
+		{
+			*--it = hex_str[n & 0xF];
+			n>>=4;
+		}
+		debug(message, it);
+	}
+	
 
 	#ifdef CELS_NAMED
 	struct ICelsNamed
@@ -259,6 +277,8 @@ namespace Celesta
 		ExecutionController* ctrl;
 		void* task_ctx = nullptr;
 		void (*on_detach)(void* ctx) = nullptr;
+		bool is_detached = false;
+		bool is_ready = false;
 		
 		void init(ExecutionController* launching_controller)
 		{
@@ -271,42 +291,64 @@ namespace Celesta
 	template<typename PF, typename MF, typename R>
 	struct MultiframeTaskRunner;
 	
+	template<typename T>
+	struct TaskData
+	{
+		TaskState state;
+		T result;
+	};
+	
+	template<>
+	struct TaskData<void>
+	{
+		TaskState state;		
+	};
 	
 	template<typename T>
 	struct Task
 	{
-		TaskState state;
-		T result;
+		TaskData<T>* data;
+		
+		Task(TaskData<T>* data = nullptr): data{data} {}
 		
 		template<typename PF, typename MF>
-		Task& init(ExecutionController* launching_controller, PF* launching_ctx, void (*set_params)(PF*, MF*)=[](PF*, MF*){})
+		Task<T>& init(ExecutionController* launching_controller, PF* launching_ctx, void (*set_params)(PF*, MF*)=[](PF*, MF*){})
 		{			
-			state.init(launching_controller);
-			auto* task_ctx = state.ctrl->push<MultiframeTaskRunner<PF, MF, T>>();
-			task_ctx->task = this;
+			debug_offset("State init", &data->state);
+			data->state.init(launching_controller);
+			auto* task_ctx = data->state.ctrl->template push<MultiframeTaskRunner<PF, MF, T>>();
+			task_ctx->task_data = data;
 			task_ctx->parent_ctx = launching_ctx;
 			task_ctx->set_params = set_params;						
-			state.ctrl->call(task_ctx, MultiframeTaskRunner<PF, MF, T>::f0, nullptr, nullptr);
+			data->state.ctrl->call(task_ctx, MultiframeTaskRunner<PF, MF, T>::f0, nullptr, nullptr);
 			
-			state.task_ctx =task_ctx;
-			state.on_detach = [](void* _task_ctx)
+			data->state.task_ctx =task_ctx;
+			data->state.on_detach = [](void* _task_ctx)
 			{
 				auto* task_ctx = (MultiframeTaskRunner<PF, MF, T>*)_task_ctx;
-				task_ctx->task = nullptr;
+				task_ctx->task_data = nullptr;
 			};
 			
 			return *this;
-		}		
+		}
 		
 		void detach()
 		{
 			debug("Detach", "Task");
-			if(state.on_detach) state.on_detach(state.task_ctx);
+			if(data->state.is_detached) return;
+			if(data->state.on_detach) 
+				data->state.on_detach(data->state.task_ctx);
+			data->state.is_detached = true;
 		}
 		
+		volatile bool is_ready() const 
+		{
+			debug_offset("State ask", &data->state);
+			return data->state.is_ready; 
+		}
 	};
 	
-	template<>
+	/*template<>
 	struct Task<void>
 	{
 		TaskState state;
@@ -314,6 +356,7 @@ namespace Celesta
 		template<typename PF, typename MF>
 		Task& init(ExecutionController* launching_controller, PF* launching_ctx, void (*set_params)(PF*, MF*)=[](PF*, MF*){})
 		{
+			debug_offset("State init", &state);
 			state.init(launching_controller);
 			auto* task_ctx = state.ctrl->push<MF>();
 			set_params(launching_ctx, task_ctx);
@@ -330,10 +373,14 @@ namespace Celesta
 		
 		void detach()
 		{
+			debug("Detach", "Task");
+			if(state.is_detached) return;
 			if(state.on_detach) state.on_detach(state.task_ctx);
+			state.is_detached = true;
 		}
 		
-	};
+		volatile bool is_ready() const { return state.is_ready; }
+	};*/
 	
 	template<typename T>
 	struct is_void
@@ -353,7 +400,7 @@ namespace Celesta
 		: public ICelsNamed
 	#endif
 	{
-		Task<R>* task;
+		TaskData<R>* task_data;
 		PF* parent_ctx;
 		void (*set_params)(PF*, MF*)=[](PF*, MF*){};
 		
@@ -370,12 +417,16 @@ namespace Celesta
 		{
 			auto* ctx = (MultiframeTaskRunner<PF, MF, R>*)_ctx;
 			{
-				auto* f = ctrl->peek<MF>();
-				if constexpr(!is_void<R>::value)
+				auto* f = ctrl->peek<MF>();				
+				debug("TASK", "READY");
+				if(ctx->task_data)
 				{
-					if(ctx->task)
-						ctx->task->result = f->return_value;
-				}				
+					debug("TASK", "READY2");
+					debug_offset("State return", &(ctx->task_data->state));
+					ctx->task_data->state.is_ready = true;
+					if constexpr(!is_void<R>::value)
+						ctx->task_data->result = f->return_value;
+				}
 			}
 			ctrl->pop();
 			ctrl->ret();

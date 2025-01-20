@@ -374,6 +374,16 @@ class _AST_TaskStart(_AST_ExpressionNode):
     def clone(self):
         return _AST_TaskStart(self.task.clone(), self.data_type)
 
+class _AST_TaskReady(_AST_ExpressionNode):
+    def __init__(self, task:_AST_ExpressionNode, expr_type:DataType):
+        _AST_ExpressionNode.__init__(self, ensure_type(expr_type, DataType))
+        if not task.data_type.is_task:
+            raise ASTException("Non-task argument provided to taskready()")
+        self.task = task
+        
+    def __str__(self):
+        return f"taskready({self.task})"
+
 class ASTNodes:
     Block = ASTBlock
     ExpressionNode = _AST_ExpressionNode
@@ -402,3 +412,4 @@ class ASTNodes:
     IndexAccess = _AST_IndexAccess
     
     TaskStart = _AST_TaskStart
+    TaskReady = _AST_TaskReady

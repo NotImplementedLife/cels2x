@@ -307,7 +307,7 @@ class Cels2AST:
             ( E_TERM << s_lparen * E * s_rparen         ).on_build(rc.arg(1)),                        
             ( E_TERM << kw_taskstart * LAMBDA_DECL    ).on_build(rc.call(self.reduce_taskstart, rc.arg(1))),
             ( E_TERM << LAMBDA_DECL    ).on_build(rc.arg(0)),
-            ( E_TERM << kw_taskready * s_lparen * E *  s_rparen).on_build(rc.arg(2)),
+            ( E_TERM << kw_taskready * s_lparen * E *  s_rparen).on_build(rc.call(self.reduce_taskready, rc.arg(2))),
             ( E_TERM << kw_taskresult * s_lparen * E *  s_rparen).on_build(rc.arg(2)),
             
             ( E_LIST << E * s_comma * E_LIST).on_build(rc.call(self.reduce_list, rc.arg(0), rc.arg(2))),
@@ -376,6 +376,9 @@ class Cels2AST:
             overload = task.function_overload
             return ASTNodes.TaskStart(task, TaskType(overload.return_type))
         return NotImplementedError()
+    
+    def reduce_taskready(self, task)->ASTNodes.TaskReady:
+        return ASTNodes.TaskReady(task, self.env.dtype_bool)
     
     def reduce_lambda(self, header: tuple[Scope, list[FormalParameter]], implementation:ASTNodes.Block|ASTNodes.ExpressionNode, return_type:DataType|None=None)->ASTNodes.FunctionClosure:
         ensure_type(implementation, ASTNodes.Block, ASTNodes.ExpressionNode)

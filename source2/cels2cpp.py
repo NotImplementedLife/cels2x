@@ -180,6 +180,9 @@ class CelsEnv2Cpp:
         
         self.binop_translator[rbo('+', dtype_bool, dtype_bool)] = lambda l,r: ["(", l, '+', r, ")"]        
         
+        self.binop_translator[rbo('==', dtype_bool, dtype_bool)] = lambda l,r: ["(", l, '==', r, ")"]
+        
+        
         #print([str(key) for key, _ in self.binop_translator.items()])
         
         for symbol in self.env.enumerate_symbols():            
@@ -378,9 +381,8 @@ class CelsEnv2Cpp:
                 # print("PRIO_BUILD VAR_DECL ", var, sid)
                 #vdecls += [self.resolve_identifier(var.data_type).full_name, " ", sid.name, ";\n"]                
                 vdecls += [self.resolve_data_type(var.data_type), " ", sid.name, ";\n"]    
-                
                 if var.data_type.is_task:
-                    task_refs.append(var)
+                    task_refs.append(var)                    
                 
                 return CppSnippet([""])
             if isinstance(ast_node, ASTNodes.Suspend):
@@ -431,7 +433,14 @@ class CelsEnv2Cpp:
                     
                     set_params_lambda += "}"
                     
-                    snippet += [ self.resolve_data_type(ast_node.data_type), "()"]
+                    #task = ast_node.
+                    #sid.name, "_data
+                    task_data_name = f"{closure.function_overload.func_symbol.name}_task_data"
+                    res_type = self.resolve_data_type(ast_node.data_type.result_type)
+                    
+                    vdecls += [ "Celesta::TaskData<", res_type, "> ", task_data_name, ";\n"  ]
+                    
+                    snippet += [ self.resolve_data_type(ast_node.data_type), "(&ctx->", task_data_name, ")"]
                     snippet += [ ".init<", func_name, ", ", ov_name , ">(ctrl, ctx, ", set_params_lambda, ")"]
                     
                     return snippet
@@ -441,7 +450,13 @@ class CelsEnv2Cpp:
                 
                 snippet += [ self.resolve_data_type(node.data_type), "()"]
                 return snippet
-                
+            
+            if isinstance(ast_node, ASTNodes.TaskReady):
+                snippet = CppSnippet([])
+                task = self.__compile_ast_node(ast_node.task, prio_build)
+                snippet += [ "(", task, ").is_ready()" ]
+                return snippet
+            
             return None
         
         defi = CppSnippet([])
@@ -663,6 +678,10 @@ class CelsEnv2Cpp:
             if node.data_type == self.env.dtype_int:
                 snippet+=["(int)", str(node.value)]
                 return snippet
+            if node.data_type == self.env.dtype_bool:
+                snippet += [("true" if node.value==True else "false")]
+                return snippet
+            
         if isinstance(node, ASTNodes.FunOverloadCall):
             if node.function_overload.func_symbol.is_method:
                 obj_arg = self.__compile_ast_node(node.args[0], prio_build)

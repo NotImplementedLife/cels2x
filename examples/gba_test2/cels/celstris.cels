@@ -98,7 +98,18 @@ begin
 			var result = npc_move(state); 
 			return result;
 			end;
-			
+		/*var task = taskstart lambda() => begin npc_move(state); end;*/
+		
+		var c2 = 1;
+		while taskready(task) == false do
+		begin 
+			c2 = (c2+1)%8;
+			state->player_color = c2;
+			suspend;
+		end;
+		
+		npc_move_y(state, 10);
+		
 		return;
 		var x = 0;
 		var y = 0;
