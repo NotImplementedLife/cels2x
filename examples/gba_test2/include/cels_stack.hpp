@@ -231,7 +231,7 @@ namespace Celesta
 			if(crt_ctx.context!=nullptr)
 				debug("RET FROM", ((ICelsNamed*)(crt_ctx.context))->icels_name());
 			#endif
-			pop();			
+			pop();
 			jump(return_ctx);
 		}
 		
@@ -300,6 +300,7 @@ namespace Celesta
 		
 		void detach()
 		{
+			debug("Detach", "Task");
 			if(state.on_detach) state.on_detach(state.task_ctx);
 		}
 		
@@ -362,7 +363,7 @@ namespace Celesta
 			auto* f = ctrl->push<MF>();
 			ctx->set_params(ctx->parent_ctx, f);
 			ctrl->call(f, MF::f0, ctx, f1);
-			return;			
+			return;
 		}
 		
 		static void f1(void* _ctx, Celesta::ExecutionController* ctrl)

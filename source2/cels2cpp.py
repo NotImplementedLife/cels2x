@@ -365,7 +365,7 @@ class CelsEnv2Cpp:
         defi += [inner_defi.indent(), "\n};\n"]
         return fragment
 
-    def __build_multiframe_component_frag(self, component, fname, vdecls, namespace)->tuple[CppSnippet, CppSnippet]:
+    def __build_multiframe_component_frag(self, component, fname, vdecls, namespace, task_refs)->tuple[CppSnippet, CppSnippet]:
         def prio_build(ast_node)->CppSnippet|None:
             print("PRIO_BUILD", type(ast_node))
             nonlocal vdecls
@@ -377,15 +377,20 @@ class CelsEnv2Cpp:
                 self.identify_symbol(var, sid)
                 # print("PRIO_BUILD VAR_DECL ", var, sid)
                 #vdecls += [self.resolve_identifier(var.data_type).full_name, " ", sid.name, ";\n"]                
-                vdecls += [self.resolve_data_type(var.data_type), " ", sid.name, ";\n"]                
+                vdecls += [self.resolve_data_type(var.data_type), " ", sid.name, ";\n"]    
+                
+                if var.data_type.is_task:
+                    task_refs.append(var)
+                
                 return CppSnippet([""])
             if isinstance(ast_node, ASTNodes.Suspend):
                 return CppSnippet(["ctrl->suspend();\n"])
             if isinstance(ast_node, ASTNodes.Return):
-                if ast_node.value is None:
-                    return CppSnippet(["ctrl->ret(); return;\n"])
-                else:
-                    return CppSnippet(["ctx->return_value = ", self.__compile_ast_node(ast_node.value, prio_build), ";\n", "ctrl->ret(); return;\n"]) 
+                snippet = CppSnippet([])
+                if ast_node.value is not None:
+                    snippet+= ["ctx->return_value = ", self.__compile_ast_node(ast_node.value, prio_build), ";\n"]
+                snippet += f"{{ f_cleanup(ctx, ctrl); ctrl->ret(); return; }}\n"
+                return snippet
             if isinstance(ast_node, PseudoAST_PreMultiframeFunCall):
                 func = ast_node.funcall.function_overload
                 func_name = self.resolve_identifier(func.func_symbol).full_name
@@ -468,7 +473,7 @@ class CelsEnv2Cpp:
             elif node.node_type=='f':
                 inner_snippet += [f"ctrl->jump(ctx, ", fname, f"::f{node.data['id']}); return;\n"]               
             elif node.node_type=='e':
-                inner_snippet += f"ctrl->ret(); return;\n"                
+                inner_snippet += f"{{ f_cleanup(ctx, ctrl); ctrl->ret(); return; }}\n"
             else:
                 inner_snippet += f"/* Node #{node.node_id} {node.node_type} */"                
         
@@ -477,8 +482,10 @@ class CelsEnv2Cpp:
     
         return defi, impl
 
-      
+    # Compilation is a destructive process!
+    # it alters overload.implementation
     def __compile_function_overload_multiframe_frag(self, overload:FunctionOverload, namespace)->CppFragment:
+    
         fragment = CppFragment(overload, namespace)
             
         fun_id = self.resolve_identifier(overload.func_symbol)
@@ -520,9 +527,11 @@ class CelsEnv2Cpp:
         
         fdefis = []
         
+        task_refs = []
+        
         for c in sorted(components.values(), key=lambda _:_['id']):            
             f_defi, f_impl = self.__build_multiframe_component_frag(c, fun_id.name, vdecls,
-                namespace=overload.func_symbol.get_full_name())
+                namespace=overload.func_symbol.get_full_name(), task_refs=task_refs)
             fdefis.append(f_defi)            
             impl += f_impl            
         
@@ -530,9 +539,25 @@ class CelsEnv2Cpp:
         inner_snippet += vdecls
         inner_snippet += fdefis
         
+        inner_snippet += "\nstatic void f_cleanup(void* _ctx, Celesta::ExecutionController* ctrl);\n"
+        
+        cleanup_impl = CppSnippet([])        
+        cleanup_impl += [f"void {overload.func_symbol.get_full_name()}", "::f_cleanup(void* _ctx, Celesta::ExecutionController* ctrl)\n"]
+        cleanup_impl += "{\n"
+        cleanup_impl_inner = CppSnippet([])
+        if len(task_refs)>0:
+            cleanup_impl_inner += [f"auto* ctx = (", overload.func_symbol.get_full_name(), "*)_ctx;\n"]
+            for task_ref in task_refs:
+                cleanup_impl_inner += [ self.resolve_identifier(task_ref).full_name, ".detach();\n" ]            
+            cleanup_impl += cleanup_impl_inner.indent()
+        cleanup_impl += "\n}\n"
+        impl += cleanup_impl
+        
+        
         inner_snippet += ["\n#ifdef CELS_NAMED\n"]
         inner_snippet += f'const char* icels_name() override {{ return "{overload.func_symbol.get_full_name()}"; }}\n'
         inner_snippet += ["#endif\n"]
+        
         
         
         defi += inner_snippet.indent() 
