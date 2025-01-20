@@ -486,8 +486,12 @@ class CelsEnv2Cpp:
         
         defi = fragment.definition
         impl = fragment.implementation
-                    
-        defi += ["struct ", fun_id.name, "\n{\n"]
+        
+        defi += ["struct ", fun_id.name, " \n"]
+        defi += ["#ifdef CELS_NAMED\n"]
+        defi += ["    : public Celesta::ICelsNamed\n"]
+        defi += ["#endif\n"]
+        defi += ["{\n"]
         inner_snippet = CppSnippet([])
         
         if len(overload.params)>0:
@@ -526,7 +530,14 @@ class CelsEnv2Cpp:
         inner_snippet += vdecls
         inner_snippet += fdefis
         
-        defi += inner_snippet.indent()        
+        inner_snippet += ["\n#ifdef CELS_NAMED\n"]
+        inner_snippet += f'const char* icels_name() override {{ return "{overload.func_symbol.get_full_name()}"; }}\n'
+        inner_snippet += ["#endif\n"]
+        
+        
+        defi += inner_snippet.indent() 
+        
+        
         defi += "\n};\n"
 
         print(fragment)

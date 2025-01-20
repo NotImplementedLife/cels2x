@@ -95,6 +95,23 @@ namespace Celesta
 	bool default_suspend_condition() { return false; }
 	void default_error_handler(const char* message)	{ while(1); }
 	
+	#define REG_NOCASH_LOG      (*(unsigned char volatile*)(0x04FFFA1C))
+	void debug(const char* message, const char* name)
+	{
+		while(*message) REG_NOCASH_LOG = *message++;
+		REG_NOCASH_LOG = ' ';
+		if(name!=nullptr)
+			while(*name) REG_NOCASH_LOG = *name++;
+		REG_NOCASH_LOG = '\n';
+	}
+
+	#ifdef CELS_NAMED
+	struct ICelsNamed
+	{
+		virtual const char* icels_name() { return ""; }
+	};
+	#endif
+	
 	struct ExecutionController
 	{
 	private:
@@ -167,7 +184,7 @@ namespace Celesta
 		
 		template<typename CTX>
 		CTX* push()
-		{
+		{			
 			auto* offset = stack->push<CTX>();
 			if(offset==nullptr && error_handler)
 			{
@@ -195,6 +212,9 @@ namespace Celesta
 
 		void call(ExecutionContext e_ctx, ExecutionContext return_ctx)
 		{
+			#ifdef CELS_NAMED
+			debug("CALL", ((ICelsNamed*)e_ctx.context)->icels_name());
+			#endif
 			*push<ExecutionContext>() = return_ctx;			
 			jump(e_ctx);
 		}
@@ -205,8 +225,12 @@ namespace Celesta
 		}
 		
 		void ret()
-		{
+		{			
 			ExecutionContext return_ctx = *peek<ExecutionContext>();
+			#ifdef CELS_NAMED
+			if(crt_ctx.context!=nullptr)
+				debug("RET FROM", ((ICelsNamed*)(crt_ctx.context))->icels_name());
+			#endif
 			pop();			
 			jump(return_ctx);
 		}
@@ -233,6 +257,8 @@ namespace Celesta
 	struct TaskState
 	{
 		ExecutionController* ctrl;
+		void* task_ctx = nullptr;
+		void (*on_detach)(void* ctx) = nullptr;
 		
 		void init(ExecutionController* launching_controller)
 		{
@@ -242,6 +268,10 @@ namespace Celesta
 		
 	};
 	
+	template<typename PF, typename MF, typename R>
+	struct MultiframeTaskRunner;
+	
+	
 	template<typename T>
 	struct Task
 	{
@@ -250,13 +280,29 @@ namespace Celesta
 		
 		template<typename PF, typename MF>
 		Task& init(ExecutionController* launching_controller, PF* launching_ctx, void (*set_params)(PF*, MF*)=[](PF*, MF*){})
-		{
+		{			
 			state.init(launching_controller);
-			auto* task_ctx = state.ctrl->push<MF>();
-			set_params(launching_ctx, task_ctx);
-			state.ctrl->call(task_ctx, MF::f0, nullptr, nullptr);
+			auto* task_ctx = state.ctrl->push<MultiframeTaskRunner<PF, MF, T>>();
+			task_ctx->task = this;
+			task_ctx->parent_ctx = launching_ctx;
+			task_ctx->set_params = set_params;						
+			state.ctrl->call(task_ctx, MultiframeTaskRunner<PF, MF, T>::f0, nullptr, nullptr);
+			
+			state.task_ctx =task_ctx;
+			state.on_detach = [](void* _task_ctx)
+			{
+				auto* task_ctx = (MultiframeTaskRunner<PF, MF, T>*)_task_ctx;
+				task_ctx->task = nullptr;
+			};
+			
 			return *this;
+		}		
+		
+		void detach()
+		{
+			if(state.on_detach) state.on_detach(state.task_ctx);
 		}
+		
 	};
 	
 	template<>
@@ -271,8 +317,21 @@ namespace Celesta
 			auto* task_ctx = state.ctrl->push<MF>();
 			set_params(launching_ctx, task_ctx);
 			state.ctrl->call(task_ctx, MF::f0, nullptr, nullptr);
+			
+			state.task_ctx =task_ctx;
+			state.on_detach = [](void* _task_ctx)
+			{
+				auto* task_ctx = (MultiframeTaskRunner<PF, MF, void>*)_task_ctx;
+				task_ctx->task = nullptr;
+			};
 			return *this;
 		}
+		
+		void detach()
+		{
+			if(state.on_detach) state.on_detach(state.task_ctx);
+		}
+		
 	};
 	
 	template<typename T>
@@ -287,22 +346,28 @@ namespace Celesta
 		inline static constexpr bool value = true;
 	};
 	
-	template<typename MF, typename R>
-	struct MultiframeTaskRunner
+	template<typename PF, typename MF, typename R>
+	struct MultiframeTaskRunner 
+	#ifdef CELS_NAMED
+		: public ICelsNamed
+	#endif
 	{
-		Task<R>* task;		
+		Task<R>* task;
+		PF* parent_ctx;
+		void (*set_params)(PF*, MF*)=[](PF*, MF*){};
 		
 		static void f0(void* _ctx, Celesta::ExecutionController* ctrl)
 		{
-			auto* ctx = (MultiframeTaskRunner<MF, R>)_ctx;
+			auto* ctx = (MultiframeTaskRunner<PF, MF, R>*)_ctx;
 			auto* f = ctrl->push<MF>();
+			ctx->set_params(ctx->parent_ctx, f);
 			ctrl->call(f, MF::f0, ctx, f1);
 			return;			
 		}
 		
 		static void f1(void* _ctx, Celesta::ExecutionController* ctrl)
 		{
-			auto* ctx = (MultiframeTaskRunner<MF, R>)_ctx;
+			auto* ctx = (MultiframeTaskRunner<PF, MF, R>*)_ctx;
 			{
 				auto* f = ctrl->peek<MF>();
 				if constexpr(!is_void<R>::value)
@@ -314,6 +379,10 @@ namespace Celesta
 			ctrl->pop();
 			ctrl->ret();
 		}
+		
+		#ifdef CELS_NAMED
+		const char* icels_name() override { return "Task"; }
+		#endif
 	};	
 	
 	template<typename T, int N>
