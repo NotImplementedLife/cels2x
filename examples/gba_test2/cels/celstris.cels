@@ -82,7 +82,7 @@ begin
 		state->npc_x = 5;
 		state->npc_y = 5;
 		var i=0;
-		while i<5 do begin
+		while i<2 do begin
 			npc_move_x(state, L);
 			npc_move_y(state, L);
 			npc_move_x(state, 0-L); 
@@ -94,23 +94,27 @@ begin
 	
 	multiframe function main_loop(state: State*): void
 	begin		
-		var task = taskstart lambda():int => begin 
+		/*var task = taskstart lambda():int => begin 
 			var result = npc_move(state); 
 			return result;
+			end;*/
+		while 1 do 
+		begin
+			var task = taskstart lambda():void => begin npc_move(state); end;
+			
+			var c2 = 1;
+			while taskready(task) == false do
+			begin 
+				c2 = (c2+1)%8;
+				state->player_color = c2;
+				suspend;
 			end;
-		/*var task = taskstart lambda() => begin npc_move(state); end;*/
-		
-		var c2 = 1;
-		while taskready(task) == false do
-		begin 
-			c2 = (c2+1)%8;
-			state->player_color = c2;
-			suspend;
+			
+			npc_move_y(state, 8);
 		end;
 		
-		npc_move_y(state, 10);
-		
-		return;
+		/*task = taskstart lambda():void => begin npc_move(state); end;*/
+
 		var x = 0;
 		var y = 0;
 		var c = 1;

@@ -62,6 +62,8 @@ namespace Celesta
 			return false;
 		}
 		
+		int get_top() const { return top; }
+		
 		void debug_print(int (*pf)(const char*,...), int ncols=3)
 		{
 			pf("____________________\n");
@@ -270,6 +272,11 @@ namespace Celesta
 				error<void>("No release controller handler set");
 			release_controller_handler(runtime, this);
 		}
+		
+		void stats()
+		{
+			debug_offset("STACK SIZE:", (void*)stack->get_top());
+		}
 	};
 		
 	struct TaskState
@@ -281,8 +288,10 @@ namespace Celesta
 		bool is_ready = false;
 		
 		void init(ExecutionController* launching_controller)
-		{
+		{			
 			ctrl = launching_controller->find_free_controller();
+			is_ready = false;
+			is_detached = false;
 		}
 		
 		
@@ -313,8 +322,8 @@ namespace Celesta
 		
 		template<typename PF, typename MF>
 		Task<T>& init(ExecutionController* launching_controller, PF* launching_ctx, void (*set_params)(PF*, MF*)=[](PF*, MF*){})
-		{			
-			debug_offset("State init", &data->state);
+		{						
+			//debug_offset("State init", &data->state);
 			data->state.init(launching_controller);
 			auto* task_ctx = data->state.ctrl->template push<MultiframeTaskRunner<PF, MF, T>>();
 			task_ctx->task_data = data;
@@ -334,7 +343,7 @@ namespace Celesta
 		
 		void detach()
 		{
-			debug("Detach", "Task");
+			//debug("Detach", "Task");
 			if(data->state.is_detached) return;
 			if(data->state.on_detach) 
 				data->state.on_detach(data->state.task_ctx);
@@ -342,45 +351,10 @@ namespace Celesta
 		}
 		
 		volatile bool is_ready() const 
-		{
-			debug_offset("State ask", &data->state);
+		{			
 			return data->state.is_ready; 
 		}
 	};
-	
-	/*template<>
-	struct Task<void>
-	{
-		TaskState state;
-		
-		template<typename PF, typename MF>
-		Task& init(ExecutionController* launching_controller, PF* launching_ctx, void (*set_params)(PF*, MF*)=[](PF*, MF*){})
-		{
-			debug_offset("State init", &state);
-			state.init(launching_controller);
-			auto* task_ctx = state.ctrl->push<MF>();
-			set_params(launching_ctx, task_ctx);
-			state.ctrl->call(task_ctx, MF::f0, nullptr, nullptr);
-			
-			state.task_ctx =task_ctx;
-			state.on_detach = [](void* _task_ctx)
-			{
-				auto* task_ctx = (MultiframeTaskRunner<PF, MF, void>*)_task_ctx;
-				task_ctx->task = nullptr;
-			};
-			return *this;
-		}
-		
-		void detach()
-		{
-			debug("Detach", "Task");
-			if(state.is_detached) return;
-			if(state.on_detach) state.on_detach(state.task_ctx);
-			state.is_detached = true;
-		}
-		
-		volatile bool is_ready() const { return state.is_ready; }
-	};*/
 	
 	template<typename T>
 	struct is_void
@@ -417,19 +391,20 @@ namespace Celesta
 		{
 			auto* ctx = (MultiframeTaskRunner<PF, MF, R>*)_ctx;
 			{
-				auto* f = ctrl->peek<MF>();				
-				debug("TASK", "READY");
+				auto* f = ctrl->peek<MF>();								
 				if(ctx->task_data)
-				{
-					debug("TASK", "READY2");
-					debug_offset("State return", &(ctx->task_data->state));
+				{					
+					// debug_offset("State return", &(ctx->task_data->state));
 					ctx->task_data->state.is_ready = true;
 					if constexpr(!is_void<R>::value)
 						ctx->task_data->result = f->return_value;
 				}
 			}
-			ctrl->pop();
+			ctrl->pop(); // pop the previously peeked multiframe context
 			ctrl->ret();
+			ctrl->pop(); // self clean stack: pop return context (pushed from call)
+			ctrl->release_from_runtime();
+			ctrl->stats();
 		}
 		
 		#ifdef CELS_NAMED
@@ -498,6 +473,7 @@ namespace Celesta
 					, default_error_handler
 					, this // runtime
 					, find_free_controller_handler
+					, release_controller_handler
 					);
 			}
 			
@@ -515,6 +491,7 @@ namespace Celesta
 				while(1);
 				return nullptr;
 			}
+			debug_offset("CTRL ALLOC ", (void*)index);
 			return &ctrls[index];
 		}
 		
@@ -525,8 +502,10 @@ namespace Celesta
 			{
 				if(error_handler)
 					error_handler("Controller not managed by runtime");
-				while(1);				
+				while(1);
 			}
+			busy_bucket.release_index(index);
+			debug_offset("CTRL FREE ", (void*)index);
 		}
 		
 		void set_error_handler(void (*error_handler)(const char*))
@@ -539,6 +518,11 @@ namespace Celesta
 		static ExecutionController* find_free_controller_handler(void* runtime)
 		{
 			return ((CelsRuntime<NO_CTRLS, STACK_SIZE>*)runtime)->find_free_controller();
+		}
+		
+		static void release_controller_handler(void* runtime, void* ctrl)
+		{
+			((CelsRuntime<NO_CTRLS, STACK_SIZE>*)runtime)->release_controller((ExecutionController*)ctrl);
 		}
 		
 		int run_step()

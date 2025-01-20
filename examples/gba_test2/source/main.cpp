@@ -10,7 +10,7 @@ void nogba_write_log(const char* message)
 
 #define CELS_DEFAULTS
 #define CELS_ERROR_HANDLER ([](const char* message){ nogba_write_log(message); while(1);})
-#define CELS_NAMED
+//#define CELS_NAMED
 #include "cels_stack.hpp"
 
 auto& cels_ctrl = Celesta::DefaultConfig::controller;
