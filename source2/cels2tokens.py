@@ -24,6 +24,7 @@ class CelsTokenTypes:
     LITERAL_INT    = CelsTokenType(__idp, "LITERAL_INT"   , r'[0-9]+')
     LITERAL_STR    = CelsTokenType(__idp, "LITERAL_STR"   , r'"([^\\"]|(\\"))*"')
     
+    KW_AND         = CelsTokenType(__idp, "KW_AND"        , r'and')
     KW_BEGIN       = CelsTokenType(__idp, "KW_BEGIN"      , r'begin')
     KW_BOOL        = CelsTokenType(__idp, "KW_BOOL"       , r'bool')
     KW_BREAK       = CelsTokenType(__idp, "KW_BREAK"      , r'break')
@@ -41,7 +42,10 @@ class CelsTokenTypes:
     KW_INT         = CelsTokenType(__idp, "KW_INT"        , r'int')
     KW_LAMBDA      = CelsTokenType(__idp, "KW_LAMBDA"     , r'lambda')
     KW_MULTIFRAME  = CelsTokenType(__idp, "KW_MULTIFRAME" , r'multiframe')
+    KW_NAND        = CelsTokenType(__idp, "KW_NAND"       , r'nand')
+    KW_NOR         = CelsTokenType(__idp, "KW_NOR"        , r'nor')
     KW_NOT         = CelsTokenType(__idp, "KW_NOT"        , r'not')
+    KW_OR          = CelsTokenType(__idp, "KW_OR"         , r'or')
     KW_PACKAGE     = CelsTokenType(__idp, "KW_PACKAGE"    , r'package')
     KW_RETURN      = CelsTokenType(__idp, "KW_RETURN"     , r'return')
     KW_SCOPE       = CelsTokenType(__idp, "KW_SCOPE"      , r'scope')
@@ -58,6 +62,7 @@ class CelsTokenTypes:
     KW_VAR         = CelsTokenType(__idp, "KW_VAR"        , r'var')
     KW_VOID        = CelsTokenType(__idp, "KW_VOID"       , r'void')
     KW_WHILE       = CelsTokenType(__idp, "KW_WHILE"      , r'while')
+    KW_XOR         = CelsTokenType(__idp, "KW_XOR"        , r'xor')
        
     S_LRARROW      = CelsTokenType(__idp, "S_LRARROW"     , r'\->')
     S_RRARROW      = CelsTokenType(__idp, "S_RRARROW"     , r'\=>')

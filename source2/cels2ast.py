@@ -63,6 +63,7 @@ class Cels2AST:
         literal_int    = rcf.terminal(CelsTokenTypes.LITERAL_INT.name)
         literal_str    = rcf.terminal(CelsTokenTypes.LITERAL_STR.name)
         
+        kw_and         = rcf.terminal(CelsTokenTypes.KW_AND.name)
         kw_begin       = rcf.terminal(CelsTokenTypes.KW_BEGIN.name)
         kw_bool        = rcf.terminal(CelsTokenTypes.KW_BOOL.name)
         kw_break       = rcf.terminal(CelsTokenTypes.KW_BREAK.name)
@@ -80,7 +81,10 @@ class Cels2AST:
         kw_int         = rcf.terminal(CelsTokenTypes.KW_INT.name)
         kw_lambda      = rcf.terminal(CelsTokenTypes.KW_LAMBDA.name)
         kw_multiframe  = rcf.terminal(CelsTokenTypes.KW_MULTIFRAME.name)
+        kw_nand        = rcf.terminal(CelsTokenTypes.KW_NAND.name)
+        kw_nor         = rcf.terminal(CelsTokenTypes.KW_NOR.name)
         kw_not         = rcf.terminal(CelsTokenTypes.KW_NOT.name)
+        kw_or          = rcf.terminal(CelsTokenTypes.KW_OR.name)
         kw_package     = rcf.terminal(CelsTokenTypes.KW_PACKAGE.name)
         kw_return      = rcf.terminal(CelsTokenTypes.KW_RETURN.name)
         kw_scope       = rcf.terminal(CelsTokenTypes.KW_SCOPE.name)
@@ -90,14 +94,14 @@ class Cels2AST:
         kw_suspend     = rcf.terminal(CelsTokenTypes.KW_SUSPEND.name)
         kw_taskstart   = rcf.terminal(CelsTokenTypes.KW_TASKSTART.name)
         kw_taskready   = rcf.terminal(CelsTokenTypes.KW_TASKREADY.name)
-        kw_taskresult   = rcf.terminal(CelsTokenTypes.KW_TASKRESULT.name)        
-        kw_then        = rcf.terminal(CelsTokenTypes.KW_THEN.name)        
-        kw_uint        = rcf.terminal(CelsTokenTypes.KW_UINT.name)        
-        kw_ushort        = rcf.terminal(CelsTokenTypes.KW_USHORT.name)        
+        kw_taskresult  = rcf.terminal(CelsTokenTypes.KW_TASKRESULT.name)
+        kw_then        = rcf.terminal(CelsTokenTypes.KW_THEN.name)
+        kw_uint        = rcf.terminal(CelsTokenTypes.KW_UINT.name)
+        kw_ushort      = rcf.terminal(CelsTokenTypes.KW_USHORT.name)
         kw_var         = rcf.terminal(CelsTokenTypes.KW_VAR.name)
         kw_void        = rcf.terminal(CelsTokenTypes.KW_VOID.name)
         kw_while       = rcf.terminal(CelsTokenTypes.KW_WHILE.name)
-           
+        kw_xor         = rcf.terminal(CelsTokenTypes.KW_XOR.name)
 
         s_ampersand    = rcf.terminal(CelsTokenTypes.S_AMPERSAND.name)        
         s_colon        = rcf.terminal(CelsTokenTypes.S_COLON.name)
@@ -110,8 +114,8 @@ class Cels2AST:
         s_equal        = rcf.terminal(CelsTokenTypes.S_EQUAL.name)
         s_lbrack       = rcf.terminal(CelsTokenTypes.S_LBRACK.name)
         s_lparen       = rcf.terminal(CelsTokenTypes.S_LPAREN.name)
-        s_lrarrow       = rcf.terminal(CelsTokenTypes.S_LRARROW.name)
-        s_rrarrow       = rcf.terminal(CelsTokenTypes.S_RRARROW.name)
+        s_lrarrow      = rcf.terminal(CelsTokenTypes.S_LRARROW.name)
+        s_rrarrow      = rcf.terminal(CelsTokenTypes.S_RRARROW.name)
         s_lt           = rcf.terminal(CelsTokenTypes.S_LT.name)
         s_lte          = rcf.terminal(CelsTokenTypes.S_LTE.name)
         s_minus        = rcf.terminal(CelsTokenTypes.S_MINUS.name)
@@ -131,23 +135,30 @@ class Cels2AST:
         
         P              = rcf.non_terminal("P")
         E              = rcf.non_terminal("E")
-                
+
         E_EQ           = rcf.non_terminal("E_EQ")
-        E_REL           = rcf.non_terminal("E_REL")
-        E_A           = rcf.non_terminal("E_A")
-        E_M           = rcf.non_terminal("E_M")
-        E_P           = rcf.non_terminal("E_P")
-        E_F           = rcf.non_terminal("E_F")
-        E_CALL        = rcf.non_terminal("E_CALL")
-        E_RTL         = rcf.non_terminal("E_RTL")
-        E_TERM        = rcf.non_terminal("E_TERM")
-        E_LIST        = rcf.non_terminal("E_LIST")
-        SYMBOL_TERM   = rcf.non_terminal("SYMBOL_TERM")
+        E_REL          = rcf.non_terminal("E_REL")
+        E_A            = rcf.non_terminal("E_A")
+        E_M            = rcf.non_terminal("E_M")
+        #E_P            = rcf.non_terminal("E_P")
+        #E_F            = rcf.non_terminal("E_F")
+        E_CALL         = rcf.non_terminal("E_CALL")
+        E_RTL          = rcf.non_terminal("E_RTL")
+        
+        E_L_NOR        = rcf.non_terminal("E_L_NOR")
+        E_L_NAND       = rcf.non_terminal("E_L_NAND")
+        E_L_XOR        = rcf.non_terminal("E_L_XOR")
+        E_L_OR         = rcf.non_terminal("E_L_OR")
+        E_L_AND        = rcf.non_terminal("E_L_AND")
+        
+        E_TERM         = rcf.non_terminal("E_TERM")
+        E_LIST         = rcf.non_terminal("E_LIST")
+        SYMBOL_TERM    = rcf.non_terminal("SYMBOL_TERM")
         
         
-        STMT_BLOCK    = rcf.non_terminal("STMT_BLOCK")
-        STMTS         = rcf.non_terminal("STMTS")
-        STMT          = rcf.non_terminal("STMT")
+        STMT_BLOCK     = rcf.non_terminal("STMT_BLOCK")
+        STMTS          = rcf.non_terminal("STMTS")
+        STMT           = rcf.non_terminal("STMT")
                 
         ANON_SCOPED_BLOCK  = rcf.non_terminal("ANON_SCOPED_BLOCK")
         ANON_SCOPED_BLOCK_ENCAPSULED = rcf.non_terminal("ANON_SCOPED_BLOCK_ENCAPSULED")
@@ -282,7 +293,13 @@ class Cels2AST:
             
             ( STMT << E).on_build(rc.arg(0)),
             
-            (E << E_EQ).on_build(rc.arg(0)),
+            (E << E_L_NOR).on_build(rc.arg(0)),
+            
+            *binary_operator_rules(E_L_NOR, E_L_NAND, [kw_nor], self.reduce_binary_operator),
+            *binary_operator_rules(E_L_NAND, E_L_XOR, [kw_nand], self.reduce_binary_operator),
+            *binary_operator_rules(E_L_XOR, E_L_OR, [kw_xor], self.reduce_binary_operator),
+            *binary_operator_rules(E_L_OR, E_L_AND, [kw_or], self.reduce_binary_operator),
+            *binary_operator_rules(E_L_AND, E_EQ, [kw_and], self.reduce_binary_operator),
             
             *binary_operator_rules(E_EQ, E_REL, [s_eqeq, s_neq], self.reduce_binary_operator),
             *binary_operator_rules(E_REL, E_A, [s_lt, s_lte, s_gt, s_gte], self.reduce_binary_operator),
@@ -291,6 +308,7 @@ class Cels2AST:
             
             ( E_RTL << kw_not * E_RTL).on_build(rc.call(self.reduce_unary_operator, rc.arg(0), rc.arg(1))),
             ( E_RTL << s_minus * E_RTL).on_build(rc.call(self.reduce_unary_operator, rc.arg(0), rc.arg(1))),
+            ( E_RTL << s_plus * E_RTL).on_build(rc.call(self.reduce_unary_operator, rc.arg(0), rc.arg(1))),
             ( E_RTL << s_ampersand * E_RTL).on_build(rc.call(self.reduce_addressof, rc.arg(1))),
             ( E_RTL << s_star * E_RTL     ).on_build(rc.call(self.reduce_dereference, rc.arg(1))),
             ( E_RTL << E_CALL).on_build(rc.arg(0)),

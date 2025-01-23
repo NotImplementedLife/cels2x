@@ -181,6 +181,12 @@ class CelsEnv2Cpp:
         self.binop_translator[rbo('==', dtype_int, dtype_int)] = lambda l,r: ["(", l, '==', r, ")"]
         self.binop_translator[rbo('!=', dtype_int, dtype_int)] = lambda l,r: ["(", l, '!=', r, ")"]
         
+        self.binop_translator[rbo('and', dtype_bool, dtype_bool)] = lambda l,r: ["(", l, '&&', r, ")"]
+        self.binop_translator[rbo('or', dtype_bool, dtype_bool)] = lambda l,r: ["(", l, '||', r, ")"]
+        self.binop_translator[rbo('xor', dtype_bool, dtype_bool)] = lambda l,r: ["(", l, '^', r, ")"]
+        self.binop_translator[rbo('nand', dtype_bool, dtype_bool)] = lambda l,r: ["(!(", l, '&&', r, "))"]
+        self.binop_translator[rbo('nor', dtype_bool, dtype_bool)] = lambda l,r: ["(!(", l, '||', r, "))"]
+        
         self.binop_translator[rbo('+', dtype_bool, dtype_bool)] = lambda l,r: ["(", l, '+', r, ")"]        
         
         self.binop_translator[rbo('==', dtype_bool, dtype_bool)] = lambda l,r: ["(", l, '==', r, ")"]

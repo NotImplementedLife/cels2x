@@ -76,6 +76,12 @@ class CelsEnvironment:
         register_comparisons(dtype_float)
         
         register_comparisons(dtype_bool, ['==', '!='])
+                
+        env.op_solver.register_binary_operator('and', dtype_bool, dtype_bool, dtype_bool)
+        env.op_solver.register_binary_operator('or', dtype_bool, dtype_bool, dtype_bool)
+        env.op_solver.register_binary_operator('xor', dtype_bool, dtype_bool, dtype_bool)
+        env.op_solver.register_binary_operator('nand', dtype_bool, dtype_bool, dtype_bool)
+        env.op_solver.register_binary_operator('nor', dtype_bool, dtype_bool, dtype_bool)
         
         env.op_solver.register_binary_operator('+', dtype_bool, dtype_bool, dtype_int)
         
