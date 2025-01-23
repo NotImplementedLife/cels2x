@@ -41,6 +41,7 @@ class CelsTokenTypes:
     KW_INT         = CelsTokenType(__idp, "KW_INT"        , r'int')
     KW_LAMBDA      = CelsTokenType(__idp, "KW_LAMBDA"     , r'lambda')
     KW_MULTIFRAME  = CelsTokenType(__idp, "KW_MULTIFRAME" , r'multiframe')
+    KW_NOT         = CelsTokenType(__idp, "KW_NOT"        , r'not')
     KW_PACKAGE     = CelsTokenType(__idp, "KW_PACKAGE"    , r'package')
     KW_RETURN      = CelsTokenType(__idp, "KW_RETURN"     , r'return')
     KW_SCOPE       = CelsTokenType(__idp, "KW_SCOPE"      , r'scope')

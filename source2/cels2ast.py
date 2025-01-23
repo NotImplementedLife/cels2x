@@ -80,6 +80,7 @@ class Cels2AST:
         kw_int         = rcf.terminal(CelsTokenTypes.KW_INT.name)
         kw_lambda      = rcf.terminal(CelsTokenTypes.KW_LAMBDA.name)
         kw_multiframe  = rcf.terminal(CelsTokenTypes.KW_MULTIFRAME.name)
+        kw_not         = rcf.terminal(CelsTokenTypes.KW_NOT.name)
         kw_package     = rcf.terminal(CelsTokenTypes.KW_PACKAGE.name)
         kw_return      = rcf.terminal(CelsTokenTypes.KW_RETURN.name)
         kw_scope       = rcf.terminal(CelsTokenTypes.KW_SCOPE.name)
@@ -137,7 +138,8 @@ class Cels2AST:
         E_M           = rcf.non_terminal("E_M")
         E_P           = rcf.non_terminal("E_P")
         E_F           = rcf.non_terminal("E_F")
-        E_C           = rcf.non_terminal("E_C")
+        E_CALL        = rcf.non_terminal("E_CALL")
+        E_RTL         = rcf.non_terminal("E_RTL")
         E_TERM        = rcf.non_terminal("E_TERM")
         E_LIST        = rcf.non_terminal("E_LIST")
         SYMBOL_TERM   = rcf.non_terminal("SYMBOL_TERM")
@@ -190,6 +192,18 @@ class Cels2AST:
                 return res
             return f            
         
+        def binary_operator_rules(E_CRT, E_H, ops, reduce, precedence='left'):
+            rules = []
+            for op in ops:
+                if precedence=='left':
+                    rules.append((E_CRT << E_CRT * op * E_H).on_build(rc.call(reduce, rc.arg(0), rc.arg(1), rc.arg(2))))
+                elif precedence=='right':
+                    rules.append((E_CRT << E_H * op * E_CRT).on_build(rc.call(reduce, rc.arg(0), rc.arg(1), rc.arg(2))))
+                else:
+                    raise RuntimeError(f"Invalid argument for precedence: `{precedence}`")
+                rules.append((E_CRT << E_H).on_build(rc.arg(0)))
+            return rules
+        
         G = Grammar([
             ( P << STMT_BLOCK                       ).on_build(rc.arg(0)),
             
@@ -221,7 +235,7 @@ class Cels2AST:
             ( STMT << kw_return * E ).on_build(rc.call(self.reduce_return, rc.arg(1))),
             ( STMT << kw_return ).on_build(rc.call(self.reduce_return)),
             # Assign
-            ( STMT << E_F * s_equal * E ).on_build(rc.call(self.reduce_assign, rc.arg(0), rc.arg(2))),
+            ( STMT << E_RTL * s_equal * E ).on_build(rc.call(self.reduce_assign, rc.arg(0), rc.arg(2))),
             
             # Struct decl
             
@@ -270,37 +284,21 @@ class Cels2AST:
             
             (E << E_EQ).on_build(rc.arg(0)),
             
-            (E_EQ << E_REL * s_eqeq * E_REL).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_EQ << E_REL * s_neq * E_REL).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_EQ << E_REL             ).on_build(rc.arg(0)),
+            *binary_operator_rules(E_EQ, E_REL, [s_eqeq, s_neq], self.reduce_binary_operator),
+            *binary_operator_rules(E_REL, E_A, [s_lt, s_lte, s_gt, s_gte], self.reduce_binary_operator),
+            *binary_operator_rules(E_A, E_M, [s_plus, s_minus], self.reduce_binary_operator),
+            *binary_operator_rules(E_M, E_RTL, [s_star, s_slash, s_percent], self.reduce_binary_operator),
             
+            ( E_RTL << s_ampersand * E_RTL).on_build(rc.call(self.reduce_addressof, rc.arg(1))),
+            ( E_RTL << s_star * E_RTL     ).on_build(rc.call(self.reduce_dereference, rc.arg(1))),            
+            ( E_RTL << E_CALL).on_build(rc.arg(0)),
             
-            (E_REL << E_A * s_lt * E_A).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_REL << E_A * s_lte * E_A).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_REL << E_A * s_gt * E_A).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_REL << E_A * s_gte * E_A).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_REL << E_A             ).on_build(rc.arg(0)),
+            ( E_CALL << E_CALL * s_lparen * E_LIST * s_rparen    ).on_build(rc.call(self.reduce_call, rc.arg(0), rc.arg(2))),
+            ( E_CALL << E_CALL * s_lbrack * E * s_rbrack ).on_build(rc.call(self.reduce_index_access, rc.arg(0), rc.arg(2))),
+            ( E_CALL << E_CALL * s_lrarrow * t_id ).on_build(rc.call(self.reduce_pointer_member_access, rc.arg(0), rc.arg(2))),
+            ( E_CALL << E_CALL * s_dot * t_id ).on_build(rc.call(self.reduce_member_access, rc.arg(0), rc.arg(2))),
             
-            (E_A << E_A * s_plus * E_M).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_A << E_A * s_minus * E_M).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_A << E_M             ).on_build(rc.arg(0)),
-            
-            (E_M << E_M * s_star * E_TERM).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_M << E_M * s_slash * E_TERM).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_M << E_M * s_percent * E_TERM).on_build(rc.call(self.reduce_binary_operator, rc.arg(0), rc.arg(1), rc.arg(2))),
-            (E_M << E_C             ).on_build(rc.arg(0)),
-            
-            ( E_C << E_C * s_lparen * E_LIST * s_rparen    ).on_build(rc.call(self.reduce_call, rc.arg(0), rc.arg(2))),
-            ( E_C << E_F).on_build(rc.arg(0)),
-            
-            ( E_F << E_F * s_dot * t_id ).on_build(rc.call(self.reduce_member_access, rc.arg(0), rc.arg(2))),
-            ( E_F << E_F * s_lrarrow * t_id ).on_build(rc.call(self.reduce_pointer_member_access, rc.arg(0), rc.arg(2))),
-            ( E_F << E_F * s_lbrack * E * s_rbrack ).on_build(rc.call(self.reduce_index_access, rc.arg(0), rc.arg(2))),
-            ( E_F << E_P ).on_build(rc.arg(0)),
-            
-            ( E_P << s_ampersand * E_P).on_build(rc.call(self.reduce_addressof, rc.arg(1))),
-            ( E_P << s_star * E_P     ).on_build(rc.call(self.reduce_dereference, rc.arg(1))),            
-            ( E_P << E_TERM).on_build(rc.arg(0)),
+            ( E_CALL << E_TERM).on_build(rc.arg(0)),
             
             ( E_TERM << SYMBOL_TERM                     ).on_build(rc.arg(0)),
             ( E_TERM << LITERAL                         ).on_build(rc.arg(0)),
