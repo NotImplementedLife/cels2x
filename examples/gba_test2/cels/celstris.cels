@@ -120,7 +120,7 @@ begin
 			var task2 = taskstart lambda():void => begin npc_move2(state); end;
 			
 			var c2 = 1;
-			while (taskready(task) == false)+(taskready(task2) == false) > 0 do
+			while (not taskready(task))+(not taskready(task2)) > 0 do
 			begin
 				c2 = (c2+1)%8;
 				state->player_color = c2;

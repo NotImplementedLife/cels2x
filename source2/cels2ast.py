@@ -289,8 +289,9 @@ class Cels2AST:
             *binary_operator_rules(E_A, E_M, [s_plus, s_minus], self.reduce_binary_operator),
             *binary_operator_rules(E_M, E_RTL, [s_star, s_slash, s_percent], self.reduce_binary_operator),
             
+            ( E_RTL << kw_not * E_RTL).on_build(rc.call(self.reduce_unary_operator, rc.arg(0), rc.arg(1))),
             ( E_RTL << s_ampersand * E_RTL).on_build(rc.call(self.reduce_addressof, rc.arg(1))),
-            ( E_RTL << s_star * E_RTL     ).on_build(rc.call(self.reduce_dereference, rc.arg(1))),            
+            ( E_RTL << s_star * E_RTL     ).on_build(rc.call(self.reduce_dereference, rc.arg(1))),
             ( E_RTL << E_CALL).on_build(rc.arg(0)),
             
             ( E_CALL << E_CALL * s_lparen * E_LIST * s_rparen    ).on_build(rc.call(self.reduce_call, rc.arg(0), rc.arg(2))),
@@ -682,7 +683,14 @@ class Cels2AST:
         ensure_type(op_token, LexicalToken)
         operator = self.env.op_solver.resolve_binary_operator(op_token.value, arg1.data_type, arg2.data_type)
         return ASTNodes.BinaryOperator(operator, arg1, arg2)
+    
+    def reduce_unary_operator(self, op_token:LexicalToken, arg:ASTNodes.ExpressionNode):
+        ensure_type(op_token, LexicalToken)
+        ensure_type(arg, ASTNodes.ExpressionNode)
+        operator = self.env.op_solver.resolve_unary_operator(op_token.value, arg.data_type)
+        return ASTNodes.UnaryOperator(operator, arg)
         
+    
     def reduce_import(self, path_tk: LexicalToken):
         path = self.reduce_string_literal(path_tk).value
         return self.import_solver(path) or self.reduce_block([])

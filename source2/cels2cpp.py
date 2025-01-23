@@ -119,6 +119,7 @@ class CelsEnv2Cpp:
         
         self.symbol2id:dict[Symbol, CppIdentifier] = {}
         self.binop_translator:dict[BinaryOperator, callable] = {}
+        self.unop_translator:dict[UnaryOperator, callable] = {}
         
         pass
         
@@ -165,6 +166,7 @@ class CelsEnv2Cpp:
         dtype_bool = self.env.dtype_bool
         
         rbo = self.env.op_solver.resolve_binary_operator
+        ruo = self.env.op_solver.resolve_unary_operator
                 
         self.binop_translator[rbo('+', dtype_int, dtype_int)] = lambda l,r: ["(", l, '+', r, ")"]
         self.binop_translator[rbo('-', dtype_int, dtype_int)] = lambda l,r: ["(", l, '-', r, ")"]
@@ -182,6 +184,7 @@ class CelsEnv2Cpp:
         
         self.binop_translator[rbo('==', dtype_bool, dtype_bool)] = lambda l,r: ["(", l, '==', r, ")"]
         
+        self.unop_translator[ruo('not', dtype_bool)] = lambda x: ["(!",x,")"]
         
         #print([str(key) for key, _ in self.binop_translator.items()])
         
@@ -662,6 +665,10 @@ class CelsEnv2Cpp:
             left = self.__compile_ast_node(node.left, prio_build)
             right = self.__compile_ast_node(node.right, prio_build)
             snippet += self.binop_translator[node.operator](left, right)
+            return snippet
+        if isinstance(node, ASTNodes.UnaryOperator):
+            operand = self.__compile_ast_node(node.operand, prio_build)
+            snippet += self.unop_translator[node.operator](operand)
             return snippet
         if isinstance(node, ASTNodes.While):
             cond = self.__compile_ast_node(node.condition, prio_build)

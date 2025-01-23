@@ -1,5 +1,5 @@
 from ast_base import ASTNode, ASTBlock, ASTSimpleInstruction
-from cels_symbols import DataType, Variable, BinaryOperator, FormalParameter, Function, TypeConverter, FunctionOverload, Field, Indexer
+from cels_symbols import DataType, Variable, BinaryOperator, FormalParameter, Function, TypeConverter, FunctionOverload, Field, Indexer, UnaryOperator
 from cels_scope import Scope, Symbol
 from utils import ensure_type, indent
 
@@ -71,6 +71,20 @@ class _AST_BinaryOperator(_AST_ExpressionNode):
     
     def clone(self):
         return _AST_BinaryOperator(self.op, self.left.clone(), self.right.clone())
+        
+class _AST_UnaryOperator(_AST_ExpressionNode):
+    operand = property(ASTNode.simple_child_getter("operand"), ASTNode.simple_child_setter("operand"))    
+
+    def __init__(self, op:UnaryOperator, operand:_AST_ExpressionNode):
+        super(_AST_UnaryOperator, self).__init__(op.res_type)
+        self.register_child_key("operand")        
+        self.operator = op
+        self.operand = operand
+        
+    def __str__(self): return f"({self.operator.symbol}{self.operand})"
+    
+    def clone(self):
+        return _AST_UnaryOperator(self.op, self.operand.clone())
 
 class _AST_Addressable(ASTNode): 
     def __init__(self):
@@ -413,3 +427,5 @@ class ASTNodes:
     
     TaskStart = _AST_TaskStart
     TaskReady = _AST_TaskReady
+    
+    UnaryOperator = _AST_UnaryOperator

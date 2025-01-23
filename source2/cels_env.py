@@ -79,6 +79,8 @@ class CelsEnvironment:
         
         env.op_solver.register_binary_operator('+', dtype_bool, dtype_bool, dtype_int)
         
+        env.op_solver.register_unary_operator('not', dtype_bool, dtype_bool)
+        
         env.op_solver.register_converter(dtype_int, dtype_float)
         env.op_solver.register_converter(dtype_int, dtype_short)
         
