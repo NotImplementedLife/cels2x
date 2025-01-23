@@ -1,0 +1,4 @@
+package Celstris
+begin
+	extern function copy_map_to_vram(shadow_map:ushort):void;
+end;

@@ -188,6 +188,7 @@ class Cels2AST:
         
         SCOPE_PUSH       = rcf.non_terminal("SCOPE_PUSH")
         NAMED_SCOPE_PUSH = rcf.non_terminal("NAMED_SCOPE_PUSH")
+        NAMED_SCOPE_PUSH_SOFT = rcf.non_terminal("NAMED_SCOPE_PUSH_SOFT")
         SCOPE_POP        = rcf.non_terminal("SCOPE_POP")
         ID_DEFINES_SCOPE = rcf.non_terminal("ID_DEFINES_SCOPE")
         ID_DEFINES_SCOPED_STRUCT = rcf.non_terminal("ID_DEFINES_SCOPED_STRUCT")
@@ -234,7 +235,7 @@ class Cels2AST:
             ( STMT << kw_var * t_id * s_equal * E).on_build(rc.call(self.reduce_vdecl_with_expr, rc.arg(1), None, rc.arg(3))),
             
             # Package decl
-            ( STMT << kw_package * ID_DEFINES_SCOPE * NAMED_SCOPE_PUSH * kw_begin * STMT_BLOCK * kw_end * SCOPE_POP)
+            ( STMT << kw_package * ID_DEFINES_SCOPE * NAMED_SCOPE_PUSH_SOFT * kw_begin * STMT_BLOCK * kw_end * SCOPE_POP)
                 .on_build(rc.call(self.reduce_package, rc.arg(1), rc.arg(4), rc.arg(6))),            
                 
             ( STMT << kw_import * literal_str).on_build(rc.call(self.reduce_import, rc.arg(1))),
@@ -369,6 +370,7 @@ class Cels2AST:
             
             
             ( NAMED_SCOPE_PUSH << eps                ).on_build(rc.call(self.reduce_named_scope_push)),
+            ( NAMED_SCOPE_PUSH_SOFT << eps           ).on_build(rc.call(self.reduce_named_scope_push, ScopeResolveStrategy.GET_OR_CREATE)),
             ( SCOPE_PUSH << eps                      ).on_build(rc.call(self.reduce_push_scope)),
             ( SCOPE_POP << eps                       ).on_build(rc.call(self.reduce_pop_scope)),            
             ( ID_DEFINES_SCOPE << t_id               ).on_build(rc.call(self.reduce_id_defines_scope, rc.arg(0))),
