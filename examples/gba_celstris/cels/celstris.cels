@@ -1,52 +1,120 @@
-import "celstris_bindings.cels";
+import "bindings.cels";
+import "utils.cels";
 
 package Celstris
 begin
-	multiframe function process_user_input(gs: GameState*, piece:Piece*):void
+	struct State
 	begin
-		var i=0;	
-		while i<10 do
+		var board_x      : int;
+		var board_y      : int;
+		var board_width  : int;
+		var board_height : int;
+		var shadow_map   : ushort[1024];
+		
+		function init():void
 		begin
-			var dx = 0;
-			if left_key_down()!=0 then dx = 0-1; end;
-			if right_key_down()!=0 then dx = 1; end;
-			
-			if dx!=0 then
-				GameState_piece_move_if_possible(gs, piece, dx, 0);
+			board_x = 10; board_y = 0;
+			board_width = 10; board_height = 18;			
+		end;
+		
+		function set_tile(y:int, x:int, c:int):void 
+		begin
+			shadow_map[32*y+x] = c;
+		end;
+		
+		function draw_border():void
+		begin
+			var i = 0;
+			while i<board_height do
+			begin
+				this->set_tile(board_y + i, board_x - 1          , 7);
+				this->set_tile(board_y + i, board_x + board_width, 7);
+				i = i + 1;
 			end;
-			
-			if down_key_held()!=0 then 
-				GameState_piece_move_if_possible(gs, piece, 0, 1);
+			i = -1;
+			while i<=board_width do
+			begin
+				this->set_tile(board_y + board_height, board_x +i , 7);
+				i = i+1;
 			end;
-			
-			i=i+1;
-			suspend;
+		end;
+		
+		var piece_tiles : ushort[16];
+		var piece_x : int;
+		var piece_y : int;
+		
+		function draw_piece():void 
+		begin
+			Bindings::copy_piece_to_vram(&piece_tiles[0], piece_y, piece_x);
+		end;
+		
+		function load_random_piece():void
+		begin
+			Bindings::load_random_piece(&piece_tiles[0]);
+			piece_x = board_x + (board_width-4)/2;
+			piece_y = board_y;
+		end;
+		
+		function try_move_piece_down():bool
+		begin
+			if not Bindings::test_piece_placement(&shadow_map[0]
+				, board_x, board_y, board_width, board_height
+				, &piece_tiles[0], piece_y+1, piece_x)
+			then 
+				return false; 
+			fi;
+			piece_y = piece_y + 1;
+			return true;
+		end;
+		
+		function try_move_piece_x(dx:int):bool
+		begin
+			if not Bindings::test_piece_placement(&shadow_map[0]
+				, board_x, board_y, board_width, board_height
+				, &piece_tiles[0], piece_y, piece_x+dx)
+			then 
+				return false; 
+			fi;
+			piece_x = piece_x + dx;
+			return true;
+		end;
+		
+		function copy_piece_to_map():void
+		begin
+			Bindings::copy_piece_to_map(&shadow_map[0], &piece_tiles[0], piece_y, piece_x);
+		end;
+		
+	end; /* State */
+	
+	function main_draw(state: State*): void
+	begin
+		Bindings::copy_map_to_vram(&state->shadow_map[0]);
+		state->draw_piece();
+	end;
+
+	multiframe function main_loop(state: State*): void
+	begin
+		state->init();
+		state->draw_border();
+		while true do
+		begin
+			state->load_random_piece();
+			var falling = true;
+			while falling do
+			begin				
+				var cooldown = 0;
+				while cooldown < 5 do
+				begin
+					var dir_x = 0;
+					if Bindings::left_key_down() then dir_x = -1; fi;
+					if Bindings::right_key_down() then dir_x = 1; fi;
+					if dir_x!=0 then state->try_move_piece_x(dir_x); fi;
+					cooldown = cooldown + 1;
+					suspend;
+				end;
+				falling = state->try_move_piece_down();
+			end;
+			state->copy_piece_to_map();			
 		end;
 	end;
-	
-	multiframe function main_loop(gs: GameState*): void 
-	begin
-		var running = 1;
-		while running>0 do
-		begin
-			var piece = GameState_generate_random_piece(gs);
-			if GameState_test_piece(gs, piece)>0
-			then begin
-				var falling_down = 1;
-				while falling_down>0 do begin
-					process_user_input(gs, piece);
-					if GameState_piece_move_if_possible(gs, piece, 0, 1)==0 then 
-						falling_down = 0;
-					end;				
-				end;
-				GameState_place_piece(gs, piece);
-			end;
-			else begin
-				GameState_reset(gs);
-			end; end;
-			
-
-		end;
-	end;		
-
 end;

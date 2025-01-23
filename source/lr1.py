@@ -9,9 +9,10 @@ class AnalysisElement:
         self.u_predictions = list(u_predictions)
         self.is_dot_at_end = self.dot_position==len(self.rule.rhs)
         self.precomputed_hash = hash((self.rule, self.dot_position, *self.u_predictions))
+        self.after_dot = self.rule.rhs[self.dot_position] if not self.is_dot_at_end else None
     
     def get_after_dot(self)->RuleComponent|None: 
-        return self.rule.rhs[self.dot_position] if not self.is_dot_at_end else None         
+        return self.after_dot
     
     def advance_dot(self):
         return AnalysisElement(self.rule, self.dot_position+1, self.u_predictions)
@@ -40,7 +41,8 @@ class CanonicalCollectionNode:
         self.nid = _id
         self.elements = set(elements)
         self.closure: list[AnalysisElement] = []
-        self.precomputed_hash = hash((self.nid, *self.elements))
+        self.elements_hash = sum(map(hash, self.elements))
+        self.precomputed_hash = hash(self.nid)+self.elements_hash
     
     def get_transitions(self):        
         it = map(lambda _:_.get_after_dot(), self.closure)
@@ -48,7 +50,7 @@ class CanonicalCollectionNode:
         return set(it)
     
     def is_equivalent_to(self, other:CanonicalCollectionNode):
-        return self.elements == other.elements
+        return self.elements_hash == other.elements_hash and self.elements == other.elements
         #intersect_cnt = len(self.elements.intersection(other.elements))
         #return intersect_cnt == len(self.elements) == len(other.elements)
     
@@ -100,7 +102,8 @@ class CanonicalCollection:
                             raise ValueError("Invalid transition? (different nodes for same transition)")
                     
     def __get_or_create(self, state:CanonicalCollectionNode)->CanonicalCollectionNode:        
-        equiv = list(filter(lambda _:_.is_equivalent_to(state), self.states))
+        #equiv = list(filter(lambda _:_.is_equivalent_to(state), self.states))
+        equiv = list(filter(state.is_equivalent_to, self.states))
         if len(equiv)==0:
             new_state = CanonicalCollectionNode(self.grammar, len(self.states), state.elements)
             self.states.append(new_state)
@@ -120,7 +123,7 @@ class LR1CanonicalCollection(CanonicalCollection):
     @staticmethod
     def __build_closure(g:Grammar, node:CanonicalCollectionNode):
         tmp_elems = set(node.elements)
-        new_elems = set()
+        new_elems = []
         
         while True:
             for elem in tmp_elems:
@@ -130,15 +133,14 @@ class LR1CanonicalCollection(CanonicalCollection):
                 beta = set()
                 beta.update(g._first1_sequence_(elem.rule.rhs[elem.dot_position+1:]))
                 if len(beta)==0 or Prediction1.empty() in beta:                    
-                    beta.update(elem.u_predictions)
+                    beta.update(elem.u_predictions)                
                 beta = [p for p in beta if p!=Prediction1.empty()]
-                #beta = list(set(beta))
                 
                 for rule in g.get_derivations_of(nxt):
-                    for b in beta:
+                    for b in beta:                        
                         a_elem = AnalysisElement(rule, 0, [b])
                         if not a_elem in tmp_elems:
-                            new_elems.add(a_elem)
+                            new_elems.append(a_elem)
             tmp_elems.update(new_elems)
             # tmp_elems = tmp_elems + new_elems
             
@@ -146,7 +148,7 @@ class LR1CanonicalCollection(CanonicalCollection):
             #for e in new_elems: print(e)
                 
             if len(new_elems)==0: break
-            new_elems = set()
+            new_elems.clear()
         node.closure = tmp_elems
     
     @staticmethod
@@ -177,7 +179,7 @@ class LR1AnalysisTable:
             if isinstance(val, Prediction1):
                 comp = None if val.is_end_of_word else val.value
                 return LR1AnalysisTable.TableColumn(comp)
-            #print(val, type(val))
+            #print(val, type(val),RuleComponent, issubclass(type(val), RuleComponent))
             raise ValueError("Could not create TableColumn")
         
         @staticmethod
@@ -210,12 +212,18 @@ class LR1AnalysisTable:
         def __str__(self): return self.type_ + (str(self.value) if self.value>=0 else "")
         def __repr__(self): return f"TableItem<{str(self)}>"
     
-    def __init__(self, grammar:Grammar):
+    def __init__(self, grammar:Grammar, path:str=None):
         from time import time
+        
+        self.table:dict[tuple[int, LR1AnalysisTable.TableColumn], set[LR1AnalysisTable.TableItem]] = {}
+        
+        self.grammar = grammar
+        
+        if path is not None:
+            if self.load(path, grammar):
+                return
 
         self.cc = LR1CanonicalCollection(grammar)
-        self.grammar = self.cc.grammar
-        self.table:dict[tuple[int, LR1AnalysisTable.TableColumn], set[LR1AnalysisTable.TableItem]] = {}
 
         # shift
         for state, sym in self.cc.transitions.keys():                  
@@ -234,11 +242,72 @@ class LR1AnalysisTable:
                     key = (state.nid, LR1AnalysisTable.TableColumn.of(sym))
                     self.__add_to_table(key, LR1AnalysisTable.TableItem.reduce(elem.rule.rule_id))
         
+        if path is not None:
+            self.save(path)
+        
         print(f"TABLE SIZE = {len(self.table)}")
+    
+    def save(self, path:str):        
+        lines = []
+        lines.append(str(self.grammar.checksum())+"\n")
+        with open(path, 'w') as f:
+            f.writelines(lines)
+            for key, value in self.table.items():
+                n, tcol = key
+                
+                if tcol.component is None: tcol = 'e $'
+                else:
+                    if isinstance(tcol.component, Terminal):
+                        tcol = 't ' + str(tcol.component.value)
+                    elif isinstance(tcol.component, NonTerminal):
+                        tcol = 'n ' + tcol.component.name
+                    else:
+                        raise RuntimeError("Analysis table serialization failed")
+                v = ' '.join([str(val) for val in value])
+                
+                f.writelines(f"{n} {tcol} {v}\n")
+        
+    def load(self, path:str, grammar:Grammar):
+        with open(path, 'r') as f:
+            lines = f.read().splitlines()
+            if lines[0]!=str(grammar.checksum()):
+                print("LR1 load: Wrong checksum, outdated grammar")
+                return False
+                #raise RuntimeError("Failed to load analysis table: wrong checksum")
+            
+            for line in lines[1:]:
+                L = line.strip()
+                if L=="": continue
+                L = line.split()
+                n, t, v = L[:3]
+                
+                if t=='n': t = grammar.get_nonterminal_by_name(v)
+                elif t=='t': t = grammar.get_terminal_by_value(v)
+                elif t=='e': t = Prediction1.end_of_word()
+                else: raise RuntimeError(f"Invalid component type: {t}")
+                
+                items = []
+                for it in L[3:]:
+                    if it=='a': items.append(LR1AnalysisTable.TableItem.accepted())
+                    elif it.startswith('r'): items.append(LR1AnalysisTable.TableItem.reduce(int(it[1:])))
+                    elif it.startswith('s'): items.append(LR1AnalysisTable.TableItem.shift(int(it[1:])))
+                    else: raise RuntimeError(f"Invalid table item: {it}")
+                
+                key = (int(n), LR1AnalysisTable.TableColumn.of(t))
+                for it in items:
+                    self.__add_to_table(key, it)
+            
+            return True
         
     def __add_to_table(self, key:tuple[int, LR1AnalysisTable.TableColumn], item:TableItem):
-        if not key in self.table: self.table[key] = set()
+        if not key in self.table: self.table[key] = set()        
         self.table[key].add(item)
+        
+        if len(self.table[key])>1:
+            conflicts = self.find_conflicts()
+            if len(conflicts)>0:
+                print("Conflicts found:", conflicts)
+                raise RuntimeError("Conflicts in LR1 analysis table")
         
     def pretty_print(self):
         TC = LR1AnalysisTable.TableColumn        
@@ -299,9 +368,9 @@ class LR1AnalysisTable:
         return []
 
 class LR1Parser:
-    def __init__(self, grammar:Grammar):
+    def __init__(self, grammar:Grammar, path:str=None):
         self.grammar = grammar
-        self.analysis_table = LR1AnalysisTable(self.grammar)        
+        self.analysis_table = LR1AnalysisTable(self.grammar, path)
         self.__test_for_conflicts()
         
     def __test_for_conflicts(self):
@@ -363,7 +432,7 @@ class LR1Parser:
             rule = self.grammar.rules[nxt.value]
             poped = pop(len(rule.rhs))
             if poped is None: return None
-                        
+            # print(rule)            
             attributes = list(map(lambda _:_.value if isinstance(_, NonTerminal) else _, poped))            
             if push(StackRuleComponent(rule.lhs, rule.process_match(attributes))) is None:
                 for p in poped: push(p)

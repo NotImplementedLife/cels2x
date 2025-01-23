@@ -21,7 +21,7 @@ public:
 	auto& init()
 	{
 		frame = ctrl->push<Frame>();
-		frame->params.gs = state;
+		frame->params.state = state;
 		ctrl->call(frame, Frame::f0, nullptr, nullptr);
 		return *this;
 	}

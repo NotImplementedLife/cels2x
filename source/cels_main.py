@@ -1,5 +1,6 @@
-from modular_cels_compiler import ModularCels2CppCompiler
-import sys
+from cels_modular import ModularCels2AST
+from cels2cpp import CelsEnv2Cpp
+import sys, os
 
 source_dir = None
 out_file = None
@@ -23,9 +24,13 @@ if out_file is None:
     print("Output file not specified (-o/.../output.cels.hpp)")
     exit(-1)
 
-compiler = ModularCels2CppCompiler()
-r = compiler.compile_from_folder(source_dir)
+c2a = ModularCels2AST(lr1_path=os.path.join(os.path.dirname(__file__), "cels_lr1_at.txt"))
+ast = c2a.compile_from_folder(source_dir)
+
+e2cpp = CelsEnv2Cpp(c2a.env)
+snippet = e2cpp.compile_env()
+
 
 with open(out_file, 'w') as f:
     f.writelines(cpp_headers)
-    f.write(r.code)
+    f.write(snippet.get_full_code())

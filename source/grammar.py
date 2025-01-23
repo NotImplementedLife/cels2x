@@ -75,13 +75,13 @@ class RuleComponentFactory:
             self.__non_terminals[name] = NonTerminal(name)
         return self.__non_terminals[name]
     
-    def epsilon(): return self.__epsilon
+    def epsilon(self): return self.__epsilon
         
 
 class Rule:
     def __init__(self, lhs:NonTerminal, rhs:list[Terminal|NonTerminal|Epsilon]):
         self.lhs = lhs
-        self.rhs = rhs
+        self.rhs = [r for r in rhs if r!=Epsilon()]
         self.__on_build = None
         self.rule_id = -1
         self.precomputed_hash = hash((self.lhs, *self.rhs))
@@ -94,7 +94,7 @@ class Rule:
         return self
     
     def process_match(self, children):
-        if self.__on_build is None:
+        if self.__on_build is None:            
             raise ValueError("Rule build callback not set")
         return self.__on_build(*children)
         
@@ -220,16 +220,19 @@ class IterQuery:
 class Prediction1:
     def __init__(self, value, is_value, is_end_of_word, is_empty):
         self.value = value; self.is_value=is_value
-        self.is_end_of_word = is_end_of_word; self.is_empty=is_empty
+        self.is_end_of_word = is_end_of_word; self.is_empty=is_empty        
     
     @staticmethod
     def of(value:Terminal|any): 
         val = value if value is not Terminal else value.value
         return Prediction1(val, True, False, False)
+       
+    
+        
     @staticmethod
-    def end_of_word(): return Prediction1(None, False, True, False)
+    def end_of_word(): return Prediction1Constants.end_of_word
     @staticmethod
-    def empty(): return Prediction1(None, False, False, True)
+    def empty(): return Prediction1Constants.empty
     
     def __repr__(self):
         if self.is_end_of_word: return "$"
@@ -245,6 +248,10 @@ class Prediction1:
     
     def __hash__(self):
         return hash((self.value, self.is_value, self.is_end_of_word, self.is_empty))
+
+class Prediction1Constants:
+    end_of_word = Prediction1(None, False, True, False)
+    empty = Prediction1(None, False, False, True)
 
 class Grammar:
     def __init__(self, rules: list[Rule], start_symbol: NonTerminal|None = None):
@@ -274,11 +281,14 @@ class Grammar:
         
         assert len(undefined_non_terminals)==0, f"No rules to define non-terminal symbols: {', '.join(undefined_non_terminals)}"
         
+        self._cached_derivations:dict[NonTerminal, list[Rule]] = {}        
+        
         self.first1_table: dict[NonTerminal, set[Prediction1]] = {}
         self.__build_first1_table__()
         
         self.follow1_table: dict[NonTerminal, set[Prediction1]] = {}
         self.__build_follow1_table__()
+
         
     def __build_first1_table__(self):
         self.first1_table.clear()
@@ -348,8 +358,29 @@ class Grammar:
                                 if not p in self.follow1_table[B]:
                                     newly_added+=1
                                     self.follow1_table[B].add(p)
-            
-    def get_derivations_of(self, n:NonTerminal): 
-        return [r for r in self.rules if r.lhs==n] #IterQuery(self.rules).filter(lambda r:r.lhs==n).to_list()
+    
+
+    def get_derivations_of(self, n:NonTerminal):
+        if not n in self._cached_derivations:
+            self._cached_derivations[n] = [r for r in self.rules if r.lhs==n]
+        return self._cached_derivations[n]        
+        #return [r for r in self.rules if r.lhs==n] #IterQuery(self.rules).filter(lambda r:r.lhs==n).to_list()
     
     def __str__(self): return '\n'.join(map(str, self.rules))
+    
+    def checksum(self):
+        cs = len(self.rules)
+        
+        for rule in self.rules:
+            cs += len(rule.rhs)
+    
+        return cs
+        
+    def get_terminal_by_value(self, value, comp=None):
+        comp = comp or (lambda x,y: x==y)
+        candidates = [t for t in self.terminals if comp(t.value, value)]
+        return candidates[0]
+    
+    def get_nonterminal_by_name(self, name):        
+        candidates = [n for n in self.non_terminals if n.name==name]
+        return candidates[0]
