@@ -290,6 +290,7 @@ class Cels2AST:
             *binary_operator_rules(E_M, E_RTL, [s_star, s_slash, s_percent], self.reduce_binary_operator),
             
             ( E_RTL << kw_not * E_RTL).on_build(rc.call(self.reduce_unary_operator, rc.arg(0), rc.arg(1))),
+            ( E_RTL << s_minus * E_RTL).on_build(rc.call(self.reduce_unary_operator, rc.arg(0), rc.arg(1))),
             ( E_RTL << s_ampersand * E_RTL).on_build(rc.call(self.reduce_addressof, rc.arg(1))),
             ( E_RTL << s_star * E_RTL     ).on_build(rc.call(self.reduce_dereference, rc.arg(1))),
             ( E_RTL << E_CALL).on_build(rc.arg(0)),

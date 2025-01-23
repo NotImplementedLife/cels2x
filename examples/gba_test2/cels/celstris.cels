@@ -83,10 +83,10 @@ begin
 		state->npc_y = 5;
 		var i=0;
 		while i<2 do begin
-			npc_move_x(state, L);
-			npc_move_y(state, L);
-			npc_move_x(state, 0-L); 
-			npc_move_y(state, 0-L);
+			npc_move_x(state,  L);
+			npc_move_y(state,  L);
+			npc_move_x(state, -L); 
+			npc_move_y(state, -L);
 			i=i+1;
 		end;
 		return i;

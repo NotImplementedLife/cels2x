@@ -163,6 +163,7 @@ class CelsEnv2Cpp:
         self.identify_symbol(self.env.dtype_void, CppIdentifier(self.env.dtype_void, "void"))
         
         dtype_int = self.env.dtype_int
+        dtype_uint = self.env.dtype_uint
         dtype_bool = self.env.dtype_bool
         
         rbo = self.env.op_solver.resolve_binary_operator
@@ -185,7 +186,11 @@ class CelsEnv2Cpp:
         self.binop_translator[rbo('==', dtype_bool, dtype_bool)] = lambda l,r: ["(", l, '==', r, ")"]
         
         self.unop_translator[ruo('not', dtype_bool)] = lambda x: ["(!",x,")"]
-        
+        self.unop_translator[ruo('-', dtype_int)] = lambda x: ["(-",x,")"]
+        self.unop_translator[ruo('-', dtype_uint)] = lambda x: ["(-",x,")"]
+        self.unop_translator[ruo('+', dtype_int)] = lambda x: ["(+",x,")"]
+        self.unop_translator[ruo('+', dtype_uint)] = lambda x: ["(+",x,")"]
+
         #print([str(key) for key, _ in self.binop_translator.items()])
         
         for symbol in self.env.enumerate_symbols():            
