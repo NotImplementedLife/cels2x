@@ -1,14 +1,10 @@
 #include <gba.h>
 #include <stdio.h>
 
+#include "log.hpp"
 #include "video_config.hpp"
+#include "cels_bindings.hpp"
 
-#define REG_NOCASH_LOG      (*(unsigned char volatile*)(0x04FFFA1C))
-void nogba_write_log(const char* message)
-{
-	while(*message) REG_NOCASH_LOG = *message++;
-	REG_NOCASH_LOG = '\n';
-}
 
 #define CELS_DEFAULTS
 #define CELS_ERROR_HANDLER ([](const char* message){ nogba_write_log(message); while(1);})
@@ -16,6 +12,7 @@ void nogba_write_log(const char* message)
 #include "cels_stack.hpp"
 
 auto& cels_ctrl = Celesta::DefaultConfig::controller;
+
 
 int dir_x(int keys)
 {
@@ -86,10 +83,31 @@ int main(void) {
 	prepare_vram();
 	init_video();
 	
+	Celstris::State state{};	
+	
+	Celesta::CelsRuntime<4> cels_runtime;
+	cels_runtime.set_error_handler(CELS_ERROR_HANDLER);
+	
+	auto* ctrl = cels_runtime.main_ctrl();
+	
+	auto* frame = ctrl->push<Celstris::main_loop>();
+	frame->params.state = &state;
+	ctrl->call(frame, Celstris::main_loop::f0, nullptr, nullptr);
+	
+	while(1) 
+	{
+		VBlankIntrWait();
+		Celstris::main_draw(&state);
+		scanKeys();
+		bk_key_down = keysDown();
+		if(!cels_runtime.run_step())
+			break;
+	}
+	
+	nogba_write_log("Done.");
 	while(1) VBlankIntrWait();
 	
-	
-	Celstris::GameState game_state(shadow_map, 32, 15-10/2, 0, 10, 18);
+	/*Celstris::GameState game_state(shadow_map, 32, 15-10/2, 0, 10, 18);
 	
 	int x0 = 15-game_state.board_width/2;
 	int x1 = 15+game_state.board_width/2;
@@ -132,7 +150,7 @@ int main(void) {
 	while(1) 
 	{
 		VBlankIntrWait();
-	}
+	}*/
 	
 	return 0;
 }

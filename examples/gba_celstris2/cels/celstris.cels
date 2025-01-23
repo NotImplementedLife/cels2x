@@ -1,164 +1,59 @@
+import "bindings.cels";
 import "utils.cels";
 
 package Celstris
 begin
 	struct State
 	begin
-		var shadow_map: ushort[1024];
+		var board_x      : int;
+		var board_y      : int;
+		var board_width  : int;
+		var board_height : int;
+		var shadow_map   : ushort[1024];
 		
+		function init():void
+		begin
+			board_x = 10; board_y = 0;
+			board_width = 10; board_height = 18;
+		end;
+		
+		function set_tile(y:int, x:int, c:int):void 
+		begin
+			shadow_map[32*y+x] = c;
+		end;
+		
+		function draw_border():void
+		begin
+			var i = 0;
+			while i<board_height do
+			begin
+				this->set_tile(board_y + i, board_x - 1          , 7);
+				this->set_tile(board_y + i, board_x + board_width, 7);
+				i = i + 1;
+			end;
+			i = 0;
+			while i<=board_width do
+			begin
+				this->set_tile(board_y + board_height-1, board_x +i , 7);
+				i = i+1;
+			end;
+		end;
+	end;
+	
+	function main_draw(state: State*): void
+	begin
+		Bindings::copy_map_to_vram(&state->shadow_map[0]);
 	end;
 
 	multiframe function main_loop(state: State*): void
 	begin
+		state->init();		
+		state->draw_border();
 		
+		while true do 
+		begin
+			suspend;
+		end;
 
 	end;
 end;
-
-/*import "celstris_bindings.cels";
-import "utils.cels";
-
-extern function scanKeys():void;
-extern function keysDown2():ushort;
-extern function dir_x(keys:int):int;
-extern function dir_y(keys:int):int;
-
-package Celstris
-begin
-	struct State
-	begin
-		var shadow_map: short[1024];
-		var npc_x:int;
-		var npc_y:int;
-		
-		var player_x:int;
-		var player_y:int;
-		var player_color:int;
-		
-		function set_color(row:int, col:int, color:short):void
-		begin
-			shadow_map[32*row+col]=color;
-		end;
-		
-	end;
-	
-	function clip(x:int, a:int, b:int):int 
-	begin
-		if x<a then return a; fi;
-		if x>b then return b; fi;
-		return x;
-	end;
-	
-	multiframe function npc_try_move_one_square(state: State*, dx:int, dy:int):void
-	begin
-		var x = state->npc_x + dx;
-		var y = state->npc_y + dy;
-		
-		while (state->player_x==x)+(state->player_y==y) == 2
-			do suspend;
-		state->npc_x = x; state->npc_y = y;
-		skip_frames(5);
-	end;
-	
-	multiframe function npc_move_x(state: State*, steps:int): int
-	begin
-		var sgn = 1;
-		if steps<0 then
-			begin
-				sgn = 0 - 1;
-				steps = 0 - steps;
-			end; 
-		fi;
-		var i = 0;
-		while i<steps do begin
-			npc_try_move_one_square(state, sgn, 0);
-			i = i+1;
-		end;
-		return 17;
-	end;
-	
-	multiframe function npc_move_y(state: State*, steps:int): void
-	begin
-		var sgn = 1;
-		if steps<0 then 
-			begin
-				sgn = 0 - 1;
-				steps = 0-steps;
-			end; 
-		fi;
-		var i = 0;
-		while i<steps do begin
-			npc_try_move_one_square(state, 0, sgn);
-			i = i+1;
-		end;
-	end;
-	
-	multiframe function npc_move(state: State*): int
-	begin
-		var L = 5;		
-		state->npc_x = 5;
-		state->npc_y = 5;
-		var i=0;
-		while i<2 do begin
-			npc_move_x(state, +L);
-			npc_move_y(state, +L);
-			npc_move_x(state, -L); 
-			npc_move_y(state, -L);
-			i=i+1;
-		end;
-		return i;
-	end;
-	
-	multiframe function npc_move2(state: State*): int
-	begin
-		var L = 5;		
-		state->npc_x = 5;
-		state->npc_y = 5;
-		var i=0;
-		while i<3 do begin
-			npc_move_x(state, L);
-			npc_move_y(state, L);
-			npc_move_x(state, 0-L); 
-			npc_move_y(state, 0-L);
-			i=i+1;
-		end;
-		return i;
-	end;
-	
-	multiframe function main_loop(state: State*): void
-	begin
-		while 1 do
-		begin
-			var task = taskstart lambda():void => begin npc_move(state); end;
-			var task2 = taskstart lambda():void => begin npc_move2(state); end;
-			
-			var c2 = 1;
-			while taskready(task) nand taskready(task2) do			
-			begin
-				c2 = (c2+1)%8;
-				state->player_color = c2;
-				suspend;
-			end;	
-			
-			npc_move_y(state, 8);
-		end;
-
-		var x = 0;
-		var y = 0;
-		var c = 1;
-		while 1 do begin
-			var kdown = keysDown2();
-			var dx = dir_x(kdown);
-			var dy = dir_y(kdown);
-			
-			x = clip(x + dx, 0, 29);
-			y = clip(y + dy, 0, 19);
-
-			state->player_x = x;
-			state->player_y = y;
-			state->player_color = c;
-			c = (c+1)%8;
-			suspend;
-		end;
-	end;
-end;*/

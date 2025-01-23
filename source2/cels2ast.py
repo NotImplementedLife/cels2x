@@ -606,7 +606,7 @@ class Cels2AST:
         print(params)
         overload = self.reduce_func_header(name_tk, params, ret_type, specs, struct_type)
         
-        struct_type.add_member(overload.func_symbol)
+        struct_type.add_member(overload.func_symbol)        
         
         return overload
     
@@ -685,7 +685,9 @@ class Cels2AST:
             custom_data_type = self.env.dtype_function
         
         if isinstance(symbol, Field):
-            this = self.reduce_symbol_term(self.current_scope().try_resolve_immediate_symbol("this"))
+            print("CURRENT SCOPE = ", self.current_scope())
+            print("THIS = ", self.current_scope().try_resolve_upper_immediate_symbol("this"))
+            this = self.reduce_symbol_term(self.current_scope().try_resolve_upper_immediate_symbol("this"))
             return self.reduce_pointer_member_access(this, symbol.name)
         
         return ASTNodes.SymbolTerm(symbol, custom_data_type)

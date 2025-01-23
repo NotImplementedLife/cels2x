@@ -182,6 +182,14 @@ class Scope:
             raise ScopeException(f"Ambiguous symbol {sym_name}. Found matches: {matches}")
         return candidate_symbols[0]
         
+    def try_resolve_upper_immediate_symbol(self, name:str)->Symbol|None:
+        candidate = self.try_resolve_immediate_symbol(name)
+        if candidate is not None:
+            return candidate
+        if self.parent is None: return None
+        return self.parent.try_resolve_upper_immediate_symbol(name)
+            
+        
     
     def resolve_symbol(self, path:str|list[str]):
         separator = self._sp.separator

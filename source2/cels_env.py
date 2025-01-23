@@ -95,6 +95,8 @@ class CelsEnvironment:
         
         env.op_solver.register_converter(dtype_int, dtype_float)
         env.op_solver.register_converter(dtype_int, dtype_short)
+        env.op_solver.register_converter(dtype_int, dtype_ushort)
+        env.op_solver.register_converter(dtype_int, dtype_uint)
         
         env.op_solver.register_converter(dtype_short, dtype_int)
         
