@@ -3,27 +3,27 @@ from utils import ensure_type, IdProvider
 
 class CelsTokenType:
     def __init__(self, idp:IdProvider, name:str, regex_str:str):
-        ensure_type(idp, IdProvider)        
+        ensure_type(idp, IdProvider)
         ensure_type(name, str)
         ensure_type(regex_str, str)
         self.token_type_id = idp.create_id()
         self.name = name
         self.regex_str = regex_str
-        
+
     def __str__(self): return f"CelsTokenType{{{self.token_type_id}:{self.name}}}"
     def __repr__(self): return self.__str__()
 
 class CelsTokenTypes:
     __idp = IdProvider()
-    
+
     WS             = CelsTokenType(__idp, "WS"            , '( |\t|\n|\r)+')
     COMMENT        = CelsTokenType(__idp, "COMMENT"       , r'/\*(([^*])|(\*[^/]))*\*/')
-    
+
     LITERAL_BOOL   = CelsTokenType(__idp, "LITERAL_BOOL"  , r'(true)|(false)')
     LITERAL_DEC    = CelsTokenType(__idp, "LITERAL_DEC"   , r'[0-9]+\.[0-9]*')
     LITERAL_INT    = CelsTokenType(__idp, "LITERAL_INT"   , r'[0-9]+')
     LITERAL_STR    = CelsTokenType(__idp, "LITERAL_STR"   , r'"([^\\"]|(\\"))*"')
-    
+
     KW_AND         = CelsTokenType(__idp, "KW_AND"        , r'and')
     KW_BEGIN       = CelsTokenType(__idp, "KW_BEGIN"      , r'begin')
     KW_BOOL        = CelsTokenType(__idp, "KW_BOOL"       , r'bool')
@@ -55,17 +55,17 @@ class CelsTokenTypes:
     KW_STRING      = CelsTokenType(__idp, "KW_STRING"     , r'string')
     KW_STRUCT      = CelsTokenType(__idp, "KW_STRUCT"     , r'struct')
     KW_SUSPEND     = CelsTokenType(__idp, "KW_SUSPEND"    , r'suspend')
-    KW_TASKSTART   = CelsTokenType(__idp, "KW_TASKSTART"  , r'taskstart')    
-    KW_TASKREADY   = CelsTokenType(__idp, "KW_TASKREADY"  , r'taskready')    
+    KW_TASKSTART   = CelsTokenType(__idp, "KW_TASKSTART"  , r'taskstart')
+    KW_TASKREADY   = CelsTokenType(__idp, "KW_TASKREADY"  , r'taskready')
     KW_TASKRESULT  = CelsTokenType(__idp, "KW_TASKRESULT" , r'taskresult')
-    KW_THEN        = CelsTokenType(__idp, "KW_THEN"       , r'then')    
+    KW_THEN        = CelsTokenType(__idp, "KW_THEN"       , r'then')
     KW_UINT        = CelsTokenType(__idp, "KW_UINT"       , r'uint')
     KW_USHORT      = CelsTokenType(__idp, "KW_USHORT"     , r'ushort')
     KW_VAR         = CelsTokenType(__idp, "KW_VAR"        , r'var')
     KW_VOID        = CelsTokenType(__idp, "KW_VOID"       , r'void')
     KW_WHILE       = CelsTokenType(__idp, "KW_WHILE"      , r'while')
     KW_XOR         = CelsTokenType(__idp, "KW_XOR"        , r'xor')
-       
+
     S_LRARROW      = CelsTokenType(__idp, "S_LRARROW"     , r'\->')
     S_RRARROW      = CelsTokenType(__idp, "S_RRARROW"     , r'\=>')
     S_DOUBLECOLON  = CelsTokenType(__idp, "S_DOUBLECOLON" , r'::')
@@ -76,8 +76,8 @@ class CelsTokenTypes:
     S_INC          = CelsTokenType(__idp, "S_INC"         , r'\+\+')
     S_DEC          = CelsTokenType(__idp, "S_DEC"         , r'\-\-')
 
-    S_AMPERSAND    = CelsTokenType(__idp, "S_AMPERSAND"   , r'\&')    
-    S_COLON        = CelsTokenType(__idp, "S_COLON"       , r':')    
+    S_AMPERSAND    = CelsTokenType(__idp, "S_AMPERSAND"   , r'\&')
+    S_COLON        = CelsTokenType(__idp, "S_COLON"       , r':')
     S_COMMA        = CelsTokenType(__idp, "S_COMMA"       , r',')
     S_DOT          = CelsTokenType(__idp, "S_DOT"         , r'\.')
     S_GT           = CelsTokenType(__idp, "S_GT"          , r'>')
@@ -93,34 +93,34 @@ class CelsTokenTypes:
     S_SEMICOLON    = CelsTokenType(__idp, "S_SEMICOLON"   , r';')
     S_SLASH        = CelsTokenType(__idp, "S_SLASH"       , r'/')
     S_STAR         = CelsTokenType(__idp, "S_STAR"        , r'\*')
-    
+
     ID             = CelsTokenType(__idp, "ID"            , r'[_A-Za-z][_A-Za-z0-9]*')
-    
+
     @staticmethod
     def get_all_types():
-        return sorted([t for t in vars(CelsTokenTypes).values() if isinstance(t, CelsTokenType)], 
+        return sorted([t for t in vars(CelsTokenTypes).values() if isinstance(t, CelsTokenType)],
             key=lambda t:t.token_type_id)
 
 class CelsLexer(Lexer):
     def __init__(self):
-        Lexer.__init__(self)        
+        Lexer.__init__(self)
         for token_type in CelsTokenTypes.get_all_types():
             self.add_rule(token_type.name, token_type.regex_str)
-    
-    def parse(self, text):            
-        result = Lexer.parse(self, text)        
-        
+
+    def parse(self, text):
+        result = Lexer.parse(self, text)
+
         if not result['success']: return result
-        
+
         tokens = result['tokens']
-        
+
         def is_space_not_allowed_h(tk1, tk2):
             return tk1.token_type.startswith('LITERAL_') and (tk2.token_type.startswith('LITERAL_') or tk2.token_type.startswith('KW_'))
         def is_space_not_allowed(tk1, tk2):
             return is_space_not_allowed_h(tk1, tk2) or is_space_not_allowed_h(tk2, tk1)
-        
+
         for i in range(len(tokens)-1):
-            tk1, tk2 = tokens[i], tokens[i+1]            
+            tk1, tk2 = tokens[i], tokens[i+1]
             if is_space_not_allowed(tk1, tk2):
                 return {
                     'tokens':tokens,
@@ -129,7 +129,7 @@ class CelsLexer(Lexer):
                 }
 
         tokens = list(filter(lambda t:t.token_type!="WS", tokens))
-        
+
         result['tokens'] = [tk for tk in tokens if tk.token_type!=CelsTokenTypes.COMMENT.name]
-        
+
         return result

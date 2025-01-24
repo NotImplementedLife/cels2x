@@ -6,7 +6,7 @@ def ensure_type(var:any, *expected_types:list[type]):
     if all(map(lambda t: not isinstance(var, t), expected_types)):
         raise TypeError(f"[ensure_type] Invalid type: expected one of {expected_types}, got {type(var)}")
     return var
-    
+
 def indent(text:str, nspaces=2):
     if text=="": return ""
     tab = " " * nspaces
@@ -15,9 +15,9 @@ def indent(text:str, nspaces=2):
 class IdProvider:
     def __init__(self):
         self._id = 0
-    
+
     def create_id(self):
         self._id += 1
         return self._id
-        
+
     def __call__(self): return self.create_id()

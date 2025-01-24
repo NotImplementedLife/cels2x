@@ -143,7 +143,7 @@ class Cels2AST:
         E_EQ           = rcf.non_terminal("E_EQ")
         E_REL          = rcf.non_terminal("E_REL")
         E_A            = rcf.non_terminal("E_A")
-        E_M            = rcf.non_terminal("E_M")        
+        E_M            = rcf.non_terminal("E_M")
         E_CALL         = rcf.non_terminal("E_CALL")
         E_RTL          = rcf.non_terminal("E_RTL")
 
@@ -190,7 +190,7 @@ class Cels2AST:
 
         FPARAMS      = rcf.non_terminal("FPARAMS")
         FPARAM      = rcf.non_terminal("FPARAM")
-        
+
         FOR_ITER = rcf.non_terminal("FOR_ITER")
 
         SCOPE_PUSH       = rcf.non_terminal("SCOPE_PUSH")
@@ -298,7 +298,7 @@ class Cels2AST:
 
             # While
             ( STMT << kw_while * E * kw_do * ANON_SCOPED_BLOCK).on_build(rc.call(ASTNodes.While, rc.arg(1), rc.arg(3))),
-            
+
             # For
             ( STMT << kw_for * SCOPE_PUSH * FOR_ITER * kw_do * ANON_SCOPED_BLOCK * SCOPE_POP)
                 .on_build(rc.call(self.reduce_for_range, rc.arg(2), rc.arg(4))),
@@ -335,8 +335,8 @@ class Cels2AST:
             ( E_RTL << s_ampersand * E_RTL).on_build(rc.call(self.reduce_addressof, rc.arg(1))),
             ( E_RTL << s_star * E_RTL     ).on_build(rc.call(self.reduce_dereference, rc.arg(1))),
             ( E_RTL << E_CALL).on_build(rc.arg(0)),
-            
-            
+
+
             ( E_CALL << E_CALL * s_inc ).on_build(rc.call(self.reduce_unary_operator, rc.arg(1), rc.arg(0), UnaryOperatorType.POSTFIX)),
             ( E_CALL << E_CALL * s_dec ).on_build(rc.call(self.reduce_unary_operator, rc.arg(1), rc.arg(0), UnaryOperatorType.POSTFIX)),
             ( E_CALL << E_CALL * s_lparen * E_LIST * s_rparen    ).on_build(rc.call(self.reduce_call, rc.arg(0), rc.arg(2))),
@@ -727,7 +727,7 @@ class Cels2AST:
         ensure_type(op_token, LexicalToken, str)
         operator = self.env.op_solver.resolve_binary_operator(self.str_or_token_value(op_token), arg1.data_type, arg2.data_type)
         return ASTNodes.BinaryOperator(operator, arg1, arg2)
-        
+
     @staticmethod
     def str_or_token_value(x:LexicalToken|str)->str:
         if isinstance(x, LexicalToken): return x.value
@@ -737,7 +737,7 @@ class Cels2AST:
     def reduce_unary_operator(self, op_token:LexicalToken|str, arg:ASTNodes.ExpressionNode, optype=UnaryOperatorType.PREFIX):
         ensure_type(op_token, LexicalToken, str)
         ensure_type(arg, ASTNodes.ExpressionNode)
-        operator = self.env.op_solver.resolve_unary_operator(self.str_or_token_value(op_token), arg.data_type, optype)        
+        operator = self.env.op_solver.resolve_unary_operator(self.str_or_token_value(op_token), arg.data_type, optype)
         return ASTNodes.UnaryOperator(operator, arg)
 
 
@@ -749,30 +749,30 @@ class Cels2AST:
         scope.metadata['type']='package'
         return ASTNodes.Package(name_token.value, block, scope)
 
-    
-    def reduce_for_range(self, for_iter, loop):        
+
+    def reduce_for_range(self, for_iter, loop):
         iter_var, init_block, condition, step_logic = for_iter
         while_node = ASTNodes.While(condition, ASTNodes.Block(loop, step_logic))
         return ASTNodes.Block(init_block, while_node)
-        
+
     def reduce_for_iter(self, iter_token, start:ASTNodes.ExpressionNode, end:ASTNodes.ExpressionNode):
         ensure_type(iter_token, LexicalToken)
         ensure_type(start, ASTNodes.ExpressionNode)
         ensure_type(end, ASTNodes.ExpressionNode)
-        variables = {}        
-        def set_iter_var(var): variables['iter'] = var        
+        variables = {}
+        def set_iter_var(var): variables['iter'] = var
         def set_stop_var(var): variables['stop'] = var
-        
+
         iter_decl = self.reduce_vdecl_with_expr(iter_token, None, start, variable_created_callback=set_iter_var)
-        stop_decl = self.reduce_vdecl_with_expr(self.gen_internal_var_name(), None, end, variable_created_callback=set_stop_var)        
-        
+        stop_decl = self.reduce_vdecl_with_expr(self.gen_internal_var_name(), None, end, variable_created_callback=set_stop_var)
+
         init_block = ASTNodes.Block(iter_decl, stop_decl)
-        
+
         term = self.reduce_symbol_term
 
         condition = self.reduce_binary_operator(term(variables['iter']), '<', term(variables['stop']))
         step_logic = self.reduce_unary_operator('++', term(variables['iter']))
-        
+
         return variables['iter'], init_block, condition, step_logic
 
     def reduce_id_defines_scope(self, token):
@@ -814,7 +814,7 @@ class Cels2AST:
         else:
             raise RuntimeError(f"Invalid type for variable name token: exprected str or LexicalToken, got {type(var_token)}")
         return ASTNodes.VDecl(variable)
-        
+
 
     def reduce_addressof(self, term:ASTNodes.ExpressionNode)->ASTNodes.AddressOf:
         return ASTNodes.AddressOf(term)
