@@ -127,7 +127,6 @@ class CelsEnv2Cpp:
         self.symbol2id[symbol] = identifier
 
     def resolve_identifier(self, symbol:Symbol)->CppIdentifier:
-        print(symbol)
         return self.symbol2id[symbol]
 
     def resolve_data_type(self, data_type:DataType)->CppSnippet:
@@ -343,9 +342,8 @@ class CelsEnv2Cpp:
             else:
                 add_dependency(root, ref)
 
-        for k, v in dep_graph.items():
-            for it in v:
-                print("D", k, it)
+        #for k, v in dep_graph.items():
+        #    for it in v: print("D", k, it)
 
         # sort topologically - Kahn's algorithm
         L = []
@@ -353,7 +351,6 @@ class CelsEnv2Cpp:
 
         while len(S)>0:
             n = S.pop()
-            print('n=', n)
             L.append(n)
             for m in get_next_nodes(n):
                 remove_dependency(n, m)
@@ -406,7 +403,7 @@ class CelsEnv2Cpp:
 
     def __build_multiframe_component_frag(self, component, fname, vdecls, namespace, task_refs)->tuple[CppSnippet, CppSnippet]:
         def prio_build(ast_node)->CppSnippet|None:
-            print("PRIO_BUILD", type(ast_node))
+            #print("PRIO_BUILD", type(ast_node))
             nonlocal vdecls
             if isinstance(ast_node, ASTNodes.VDecl):
                 def verbatim_local_symbol_id(param):
@@ -414,9 +411,7 @@ class CelsEnv2Cpp:
                     return CppIdentifier(param, name, f"ctx->{name}")
                 var = ast_node.variable
                 sid = verbatim_local_symbol_id(var)
-                self.identify_symbol(var, sid)
-                # print("PRIO_BUILD VAR_DECL ", var, sid)
-                #vdecls += [self.resolve_identifier(var.data_type).full_name, " ", sid.name, ";\n"]
+                self.identify_symbol(var, sid)                
                 vdecls += [self.resolve_data_type(var.data_type), " ", sid.name, ";\n"]
                 if var.data_type.is_task:
                     task_refs.append(var)
@@ -464,14 +459,10 @@ class CelsEnv2Cpp:
                     for i, arg in enumerate(closure.captured_args):
                         fparam = closure.function_overload.params[i]
                         carg = self.__compile_ast_node(arg, prio_build)
-                        set_params_lambda+= ["mfctx->params.", fparam.name, " = ", carg, ";"]
-                        print(fparam)
-                        print(arg)
+                        set_params_lambda+= ["mfctx->params.", fparam.name, " = ", carg, ";"]                        
 
                     set_params_lambda += "}"
-
-                    #task = ast_node.
-                    #sid.name, "_data
+                    
                     task_data_name = f"{closure.function_overload.func_symbol.name}_task_data"
                     res_type = self.resolve_data_type(ast_node.data_type.result_type)
 
@@ -617,7 +608,6 @@ class CelsEnv2Cpp:
 
         defi += "\n};\n"
 
-        print(fragment)
         return fragment
 
     def __compile_function_overload_noframe_frag(self, overload:FunctionOverload, namespace:str)->CppFragment:
@@ -649,8 +639,6 @@ class CelsEnv2Cpp:
             impl += "\n"
             impl += self.__compile_ast_node(overload.implementation)
             impl += "\n"
-
-        print(fragment)
 
         return fragment
 

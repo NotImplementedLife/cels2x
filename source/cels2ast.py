@@ -34,10 +34,10 @@ class Cels2AST:
         self.import_solver:callable[[str], ASTNode] = default_import_solver
         self.lexer = lexer or CelsLexer()
 
-    def parse_tokens(self, tokens, verbose=False, debug=True):
-        print(tokens)
+    def parse_tokens(self, tokens, verbose=False, debug=False):        
         parse_result = self.parser.parse_tokens(tokens, lambda tk: self.rcf.terminal(tk.token_type), verbose=verbose)
         if debug:
+            print(tokens)
             print(self.env.global_scope.to_str_recursive())
             if 'error' in parse_result:
                 print("\n", parse_result['message'], "\n")
@@ -430,11 +430,6 @@ class Cels2AST:
         ensure_type(return_type, DataType, None)
 
         scope, params = header
-        print("?????????????????????????????????????")
-        print(params)
-        print(implementation)
-        print(self.current_scope(), scope)
-        print("?????????????????????????????????????")
 
         if return_type is None:
             if isinstance(implementation, ASTNodes.ExpressionNode):
@@ -624,7 +619,6 @@ class Cels2AST:
     def reduce_struct_method_header(self, name_tk:LexicalToken, params:list[tuple[str, DataType]], ret_type:DataType, specs=None)-> FunctionOverload:
         _, struct_type = self.current_struct_context()
         params = [("this", struct_type.make_pointer())] + params
-        print(params)
         overload = self.reduce_func_header(name_tk, params, ret_type, specs, struct_type)
 
         struct_type.add_member(overload.func_symbol)
@@ -701,8 +695,6 @@ class Cels2AST:
 
     def reduce_symbol_term(self, symbol:Symbol)->ASTNodes.SymbolTerm:
         custom_data_type:DataType|None = None
-
-        print("QQQQQQQQQQQQQQQQQQQQQQ", symbol, type(symbol))
 
         if isinstance(symbol, Function):
             custom_data_type = self.env.dtype_function
@@ -864,8 +856,7 @@ class Cels2AST:
         stack = [ast]
 
         mf_calls = []
-        def identify_multiframe_calls(node):
-            print("IMC", type(node).__name__, str(node).replace("\n", " "))
+        def identify_multiframe_calls(node):            
             if isinstance(node, ASTNodes.FunOverloadCall) and node.function_overload.is_multiframe:
                 mf_calls.append(node)
                 return True
