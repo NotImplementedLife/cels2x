@@ -99,7 +99,7 @@ begin
 		state->draw_piece();
 	end;
 
-	multiframe function main_loop(state: State*): void	
+	multiframe function main_loop(state: State*): void
 	begin
 		*state = State();
 		state->draw_border();
@@ -122,7 +122,7 @@ begin
 					if Bindings::down_key_held() 
 						then state->try_move_piece_down();
 					fi;
-					suspend;					
+					suspend;
 				end;
 				falling = state->try_move_piece_down();
 			end;

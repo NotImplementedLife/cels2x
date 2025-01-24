@@ -22,7 +22,7 @@ class Cels2AST:
         grammar = self.__create_grammar()
         self.named_scope_stack = []
 
-        print("H=",grammar.checksum())
+        print("Grammar hash =",grammar.checksum())
 
         self.parser = LR1Parser(grammar, lr1_path)
         if lr1_path is None:
@@ -315,6 +315,9 @@ class Cels2AST:
 
             # While
             ( STMT << kw_while * E * kw_do * ANON_SCOPED_BLOCK).on_build(rc.call(ASTNodes.While, rc.arg(1), rc.arg(3))),
+            
+            ( STMT << kw_break    ).on_build(rc.call(ASTNodes.Break)),
+            ( STMT << kw_continue ).on_build(rc.call(ASTNodes.Continue)),
 
             # For
             ( STMT << kw_for * SCOPE_PUSH * FOR_ITER * kw_do * ANON_SCOPED_BLOCK * SCOPE_POP)
