@@ -1,0 +1,9 @@
+multiframe function skip_frames(n:int):void
+begin
+	var i:int = 0;
+	while i<n do
+	begin
+		i = i+1;
+		suspend;
+	end;
+end;

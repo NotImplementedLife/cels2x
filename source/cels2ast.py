@@ -183,6 +183,9 @@ class Cels2AST:
         FUNC_SPEC    = rcf.non_terminal("FUNC_SPEC")
         FUNC_SPECS    = rcf.non_terminal("FUNC_SPECS")
         
+        STRUCT_SPEC    = rcf.non_terminal("STRUCT_SPEC")
+        STRUCT_SPECS    = rcf.non_terminal("STRUCT_SPECS")
+        
         FPARAMS      = rcf.non_terminal("FPARAMS")
         FPARAM      = rcf.non_terminal("FPARAM")
         
@@ -251,7 +254,13 @@ class Cels2AST:
             
             # Struct decl
             
-            ( STMT << kw_struct * ID_DEFINES_SCOPED_STRUCT * STRUCT_BLOCK * SCOPE_POP).on_build(rc.call(self.reduce_struct_decl, rc.arg(1), rc.arg(2))),
+            ( STMT << kw_struct * ID_DEFINES_SCOPED_STRUCT * STRUCT_SPECS * STRUCT_BLOCK * SCOPE_POP)
+                .on_build(rc.call(self.reduce_struct_decl, rc.arg(1), rc.arg(3), rc.arg(2))),
+            
+            ( STRUCT_SPECS << STRUCT_SPEC * STRUCT_SPECS).on_build(rc.call(self.reduce_list, rc.arg(0), rc.arg(1))),
+            ( STRUCT_SPECS << eps).on_build(rc.call(self.empty_list)),
+            
+            ( STRUCT_SPEC << kw_cpp_include * s_lparen * literal_str * s_rparen).on_build(rc.call(self.reduce_cpp_include, rc.arg(2))),
             
             ( STRUCT_BLOCK << eps).on_build(rc.call(self.empty_list)),
             ( STRUCT_BLOCK << kw_begin * STRUCT_MEMBERS * kw_end).on_build(rc.arg(1)),
@@ -592,7 +601,8 @@ class Cels2AST:
         struct_type.add_member(field)
         return ASTNodes.FieldDecl(field)
     
-    def reduce_struct_decl(self, struct_type:StructType, members:list):
+    def reduce_struct_decl(self, struct_type:StructType, members:list, specs):
+        struct_type.specs = specs        
         return ASTNodes.StructDecl(ensure_type(struct_type, StructType), members)
     
     def reduce_formal_parameter_data(self, name_tk:LexicalToken, data_type:DataType)->tuple:

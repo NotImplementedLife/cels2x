@@ -1,0 +1,16 @@
+package Celstris
+begin
+	package Bindings
+	begin		
+		extern function load_random_piece(buffer: ushort*):void;		
+		extern function copy_piece_to_vram(piece:ushort*, y:int, x:int):void;
+		extern function copy_piece_to_map(map:ushort*, piece:ushort*, y:int, x:int):void;
+		extern function test_piece_placement(map:ushort*, mx:int, my:int, mw:int, mh:int, piece:ushort*, y:int, x:int) : bool;		
+		
+		extern function copy_map_to_vram(shadow_map:ushort*):void;
+		
+		extern function left_key_down() : bool;
+		extern function right_key_down() : bool;
+		extern function down_key_held() : bool;
+	end;
+end;

@@ -117,7 +117,7 @@ begin
 				end;
 				falling = state->try_move_piece_down();
 			end;
-			state->copy_piece_to_map();			
+			state->copy_piece_to_map();
 		end;
 	end;
 end;

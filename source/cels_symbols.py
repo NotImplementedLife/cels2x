@@ -91,6 +91,8 @@ class StructType(DataTypeSymbol):
         DataTypeSymbol.__init__(self, name, scope)        
         self._inner_scope = None
         self._members:set[Symbol] = set()
+        self._specs = []
+        self._cpp_header = None
     
     @property
     def members(self): return list(self._members)
@@ -103,6 +105,22 @@ class StructType(DataTypeSymbol):
     
     @inner_scope.setter
     def inner_scope(self, value: Scope): self._inner_scope = ensure_type(value, Scope)
+    
+    @property
+    def specs(self): return self._specs
+    
+    @specs.setter
+    def specs(self, value): 
+        self._specs = value
+        for key, val in self._specs:
+            if key=='cpp_include':
+                self._cpp_header = val['header']
+    
+    def has_cpp_header(self): return self._cpp_header is not None
+    
+    @property
+    def cpp_header(self): return self._cpp_header
+        
     
 
 class Variable(Symbol):

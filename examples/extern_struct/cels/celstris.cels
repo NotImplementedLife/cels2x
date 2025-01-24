@@ -1,0 +1,20 @@
+import "bindings.cels";
+import "utils.cels";
+
+package Celstris
+begin	
+	struct State cppinclude("state.hpp")
+	begin
+		function draw_on_vram(): void;
+	end;
+	
+	function main_draw(state: State*): void
+	begin		
+		state->draw_on_vram();
+	end;
+
+	multiframe function main_loop(state: State*): void
+	begin
+		
+	end;
+end;

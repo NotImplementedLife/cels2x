@@ -256,7 +256,13 @@ class CelsEnv2Cpp:
                 return
             
             if isinstance(symbol, StructType):
-                fragment = self.__compile_struct_frag(symbol, get_namespace())
+                if symbol.has_cpp_header():
+                    fragment = CppFragment(symbol, get_namespace())
+                    header = symbol.cpp_header
+                    if not header.startswith('<'): header = f'"{header}"'
+                    fragment.definition.headers.append(header)
+                else:
+                    fragment = self.__compile_struct_frag(symbol, get_namespace())
                 fragments.append(fragment)
                 return
             
