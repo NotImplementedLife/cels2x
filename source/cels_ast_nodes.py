@@ -403,14 +403,13 @@ class _AST_TaskReady(_AST_ExpressionNode):
 class _AST_ObjectCreate(_AST_ExpressionNode):
     args = property(ASTNode.simple_children_list_getter('args'))
 
-    def __init__(self, obj_type:DataType, constr_args:list[_AST_ExpressionNode]):        
+    def __init__(self, obj_type:DataType, constr_overload:FunctionOverload|None, constr_args:list[_AST_ExpressionNode]):
         _AST_ExpressionNode.__init__(self, ensure_type(obj_type, DataType))
         if not obj_type.is_struct:
             raise ASTException(f"Struct type expected, got {obj_type}")
         self.register_children_list_key('args')
         self.obj_type = obj_type
-                                
-        #self._function_overload = ensure_type(func_overload, FunctionOverload)        
+        self.constr_overload = constr_overload # None = default
 
         for arg in constr_args:
             ensure_type(arg, _AST_ExpressionNode).set_parent(self, 'args')

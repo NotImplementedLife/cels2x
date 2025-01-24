@@ -93,6 +93,8 @@ class StructType(DataTypeSymbol):
         self._members:set[Symbol] = set()
         self._specs = []
         self._cpp_header = None
+        self._constructors:list[FunctionOverload] = []
+        self._destructors:list[FunctionOverload] = []
 
     @property
     def members(self): return list(self._members)
@@ -120,6 +122,19 @@ class StructType(DataTypeSymbol):
 
     @property
     def cpp_header(self): return self._cpp_header
+    
+    @property
+    def constructors(self): return self._constructors
+    
+    def add_constructor(self, overload:FunctionOverload):
+        self._constructors.append(overload)
+    
+    @property
+    def destructors(self): return self._destructors
+    
+    def add_destructor(self, overload:FunctionOverload):
+        self._destructors.append(overload)
+        
 
 
 

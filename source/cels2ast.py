@@ -537,12 +537,17 @@ class Cels2AST:
         return ASTNodes.Return(value)
 
     def reduce_call(self, callable_item:ASTNodes.ExpressionNode, args:list[ASTNodes.ExpressionNode])->ASTNodes.ExpressionNode:
-        print("DTYPE = ", callable_item.data_type)
         if callable_item.data_type==self.env.dtype_type:
             if not isinstance(callable_item, ASTNodes.SymbolTerm):
                 raise ASTException("Expression of type `data type` must be a symbol")
-            objtype = callable_item.symbol
-            return ASTNodes.ObjectCreate(objtype, args)
+            objtype = callable_item.symbol            
+            if len(objtype.constructors)==0:
+                if len(args)>0:
+                    raise ASTException("Default constructor does not take any arguments")
+                return ASTNodes.ObjectCreate(objtype, None, args)
+            arg_types = [objtype.make_pointer()] + list(map(lambda a:a.data_type, args))
+            overload = self.match_function_calling_args(objtype.constructors[0].func_symbol, arg_types)
+            return ASTNodes.ObjectCreate(objtype, overload, args)
     
         if callable_item.data_type==self.env.dtype_function:
             if not isinstance(callable_item, ASTNodes.SymbolTerm):
@@ -652,13 +657,15 @@ class Cels2AST:
     def reduce_struct_constructor_header(self, params:list[tuple[str, DataType]])->FunctionOverload:
         _, struct_type = self.current_struct_context()
         params = [("this", struct_type.make_pointer())] + params
-        overload = self.reduce_func_header("@constructor", params, self.env.dtype_void, None, struct_type)
+        overload = self.reduce_func_header("@constructor", params, self.env.dtype_void, specs=None, declaring_type=struct_type)
+        struct_type.add_constructor(overload)
         return overload
         
     def reduce_struct_destructor_header(self)->FunctionOverload:
         _, struct_type = self.current_struct_context()
         params = [("this", struct_type.make_pointer())]
         overload = self.reduce_func_header("@destructor", params, self.env.dtype_void, None, struct_type)
+        struct_type.add_destructor(overload)
         return overload
         
 

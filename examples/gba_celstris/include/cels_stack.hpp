@@ -541,22 +541,10 @@ namespace Celesta
 
 	
 #ifdef CELS_DEFAULTS
-	
 	#ifndef CELS_ERROR_HANDLER
 		#define CELS_ERROR_HANDLER ([](const char*){while(1);})
 	#endif
-	
-	struct DefaultConfig
-	{
-		inline static int stack_buffer[1024]{};
-		inline static Stack stack{stack_buffer, sizeof(stack_buffer)/sizeof(stack_buffer[0])};
-		
-		inline static Celesta::ExecutionController controller{
-			&stack,
-			/* suspend_condition = */ [](){ return false; },
-			/* error_handler     = */ CELS_ERROR_HANDLER
-		};
-	};
+
 
 #endif // CELS_DEFAULTS
 	

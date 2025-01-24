@@ -376,7 +376,7 @@ class CelsEnv2Cpp:
                 defi += [fragment.definition, "\n"]
         return defi, impl
 
-    def __compile_struct_frag(self, struct, namespace:str)->CppFragment:
+    def __compile_struct_frag(self, struct, namespace:str|None)->CppFragment:
         fragment  = CppFragment(struct, namespace)
         defi, impl = fragment.definition, fragment.implementation
 
@@ -384,7 +384,17 @@ class CelsEnv2Cpp:
         defi += ["struct ", cpp_id.name, "\n{\n"]
 
         inner_defi = CppSnippet([])
-
+        
+        struct_scope_ns = struct.get_full_name()
+        for constructor_overload in struct.constructors:
+            constr_frag = self.__compile_struct_constr_destr_frag(constructor_overload, struct_scope_ns)
+            inner_defi += [constr_frag.definition, "\n"]
+            impl += [constr_frag.implementation, "\n"]
+            
+        for destructor_overload in struct.destructors:
+            destr_frag = self.__compile_struct_constr_destr_frag(destructor_overload, struct_scope_ns)
+            inner_defi += [destr_frag.definition, "\n"]
+            impl += [destr_frag.implementation, "\n"]
 
         for member in sorted(struct.members, key=lambda m:m.metadata["sid"]):
             if isinstance(member, Field):
@@ -613,6 +623,46 @@ class CelsEnv2Cpp:
 
         return fragment
 
+    def __compile_struct_constr_destr_frag(self, overload:FunctionOverload, namespace:str)->CppFragment:
+        if not overload.func_symbol.name in ['@constructor', '@destructor']:
+            raise RuntimeError(f"Expected constructor or destructor, got {overload.func_symbol}")
+        fragment = CppFragment(overload, namespace)
+        rid = self.resolve_identifier
+        rdt = self.resolve_data_type
+
+        fun_id = rid(overload.func_symbol)
+        ret_type_id = rdt(overload.return_type)
+
+        params = [(rdt(p.data_type), rid(p).name) for p in overload.params]
+        if not overload.func_symbol.is_method or namespace is None: # namespace is a subtitute for struct's scope
+            raise RuntimeError("Overload is constructor/destructor but not method of a struct")
+        
+        # typeof(this)=Struct*, get the pointing element type
+        this_type = overload.params[0].data_type.element_type.name 
+        params = params[1:]
+        
+        header_pms = []
+        for i,(d,p) in enumerate(params):
+            if i>0: header_pms.append(", ")
+            header_pms+=[d," ",p]
+        
+        if overload.func_symbol.name=="@constructor":
+            fragment.definition += [this_type, "(", *header_pms, ");"]
+        else: # overload.func_symbol.name=="@destructor"
+            fragment.definition += ["~",this_type, "(", *header_pms, ");"]
+
+        if overload.implementation is not None:
+            impl = fragment.implementation
+            if overload.func_symbol.name=="@constructor":
+                impl += [namespace, "::", this_type, "(", *header_pms, ")"]            
+            else: # overload.func_symbol.name=="@destructor"
+                impl += [namespace, "::~", this_type, "(", *header_pms, ")"]            
+            impl += "\n"
+            impl += self.__compile_ast_node(overload.implementation)
+            impl += "\n"
+
+        return fragment
+
     def __compile_function_overload_noframe_frag(self, overload:FunctionOverload, namespace:str)->CppFragment:
         fragment = CppFragment(overload, namespace)
 
@@ -644,6 +694,7 @@ class CelsEnv2Cpp:
             impl += "\n"
 
         return fragment
+
 
     def __compile_function_overload_frag(self, overload:FunctionOverload, namespace)->CppFragment:
         if overload.func_symbol.declaring_type is None:
@@ -762,6 +813,17 @@ class CelsEnv2Cpp:
             dtype = self.resolve_data_type(node.data_type)
             snippet += ["((", dtype, ")", "(", expr, "))"]
             return snippet
+            
+        if isinstance(node, ASTNodes.ObjectCreate):
+            dtype = self.resolve_data_type(node.data_type)
+            args = [self.__compile_ast_node(arg, prio_build) for arg in node.args]
+            snippet += [dtype, "("]
+            for i, arg in enumerate(args):
+                if i>0: snippet += ","
+                snippet += arg
+            snippet += ")"
+            return snippet
+            
         if isinstance(node, ASTNodes.TaskStart):
             raise RuntimeError("Wrong route, should have been multiframe prio_build")
 

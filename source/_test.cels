@@ -19,6 +19,11 @@ begin
 		return x+y;
 	end;
 	
+	function sum(z:int): int 
+	begin
+		return x+y+z;
+	end;
+	
 	function dif(): int 
 	begin
 		return x-y;

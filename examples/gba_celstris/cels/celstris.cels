@@ -101,11 +101,15 @@ begin
 
 	multiframe function main_loop(state: State*): void	
 	begin
-		state->init();
+		*state = State();
 		state->draw_border();
-		while true do
+		
+		var running = true;
+		
+		while running do
 		begin
 			state->load_random_piece();
+			if not state->try_move_piece_x(0) then running=false; fi;
 			var falling = true;
 			while falling do
 			begin
@@ -118,11 +122,36 @@ begin
 					if Bindings::down_key_held() 
 						then state->try_move_piece_down();
 					fi;
-					suspend;
-				end;				
+					suspend;					
+				end;
 				falling = state->try_move_piece_down();
 			end;
 			state->copy_piece_to_map();
 		end;
 	end;
+	
+	/*Multiframe launch proposal:*/
+	
+	/*function entry_point(): void
+	begin
+		var state: State;
+		
+		multiframe
+		begin	
+			frames main_loop(&state);
+			
+			on_frame_start 
+			begin
+				VBlankIntrWait();
+				main_draw(&state);
+				update_keys();
+			end;
+			
+			on_frame_end begin end;
+			
+			runtime_stacks = 4;
+						
+			
+		end;
+	end;*/
 end;

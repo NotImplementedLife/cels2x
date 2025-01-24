@@ -9,9 +9,8 @@
 
 #define CELS_DEFAULTS
 #define CELS_ERROR_HANDLER ([](const char* message){ nogba_write_log(message); while(1);})
-//#define CELS_NAMED // log function names when calling (debug only)
+#define CELS_NAMED // log function names when calling (debug only)
 #include "cels_stack.hpp"
-
 
 #include "cels_scripts.hpp"
 
@@ -39,7 +38,7 @@ int main(void) {
 	{
 		VBlankIntrWait();
 		Celstris::main_draw(&state);
-		update_keys();		
+		update_keys();
 		if(!cels_runtime.run_step())
 			break;
 	}
