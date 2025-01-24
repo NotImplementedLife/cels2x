@@ -74,10 +74,12 @@ class Cels2AST:
         kw_end         = rcf.terminal(CelsTokenTypes.KW_END.name)
         kw_else        = rcf.terminal(CelsTokenTypes.KW_ELSE.name)
         kw_extern      = rcf.terminal(CelsTokenTypes.KW_EXTERN.name)
+        kw_for         = rcf.terminal(CelsTokenTypes.KW_FOR.name)
         kw_fi          = rcf.terminal(CelsTokenTypes.KW_FI.name)
         kw_function    = rcf.terminal(CelsTokenTypes.KW_FUNCTION.name)
         kw_if          = rcf.terminal(CelsTokenTypes.KW_IF.name)
         kw_import      = rcf.terminal(CelsTokenTypes.KW_IMPORT.name)
+        kw_in          = rcf.terminal(CelsTokenTypes.KW_IN.name)
         kw_int         = rcf.terminal(CelsTokenTypes.KW_INT.name)
         kw_lambda      = rcf.terminal(CelsTokenTypes.KW_LAMBDA.name)
         kw_multiframe  = rcf.terminal(CelsTokenTypes.KW_MULTIFRAME.name)
@@ -141,9 +143,7 @@ class Cels2AST:
         E_EQ           = rcf.non_terminal("E_EQ")
         E_REL          = rcf.non_terminal("E_REL")
         E_A            = rcf.non_terminal("E_A")
-        E_M            = rcf.non_terminal("E_M")
-        #E_P            = rcf.non_terminal("E_P")
-        #E_F            = rcf.non_terminal("E_F")
+        E_M            = rcf.non_terminal("E_M")        
         E_CALL         = rcf.non_terminal("E_CALL")
         E_RTL          = rcf.non_terminal("E_RTL")
 
@@ -190,6 +190,8 @@ class Cels2AST:
 
         FPARAMS      = rcf.non_terminal("FPARAMS")
         FPARAM      = rcf.non_terminal("FPARAM")
+        
+        FOR_ITER = rcf.non_terminal("FOR_ITER")
 
         SCOPE_PUSH       = rcf.non_terminal("SCOPE_PUSH")
         NAMED_SCOPE_PUSH = rcf.non_terminal("NAMED_SCOPE_PUSH")
@@ -296,6 +298,13 @@ class Cels2AST:
 
             # While
             ( STMT << kw_while * E * kw_do * ANON_SCOPED_BLOCK).on_build(rc.call(ASTNodes.While, rc.arg(1), rc.arg(3))),
+            
+            # For
+            ( STMT << kw_for * SCOPE_PUSH * FOR_ITER * kw_do * ANON_SCOPED_BLOCK * SCOPE_POP)
+                .on_build(rc.call(self.reduce_for_range, rc.arg(2), rc.arg(4))),
+
+            ( FOR_ITER << t_id * kw_in * E * s_colon * E )
+                .on_build(rc.call(self.reduce_for_iter, rc.arg(0), rc.arg(2), rc.arg(4))),
 
             ( STMT << kw_suspend ).on_build(rc.call(ASTNodes.Suspend)),
 
@@ -497,11 +506,14 @@ class Cels2AST:
         return ASTNodes.FunctionClosure(overload, self.env.dtype_closure_function, captured_args)
 
 
-    def reduce_vdecl_with_expr(self, var_token:LexicalToken, data_type:DataType, expr: ASTNodes.ExpressionNode):
+    def reduce_vdecl_with_expr(self, var_token:LexicalToken|str, data_type:DataType, expr: ASTNodes.ExpressionNode,
+        variable_created_callback=None):
         ensure_type(expr, ASTNodes.ExpressionNode)
         data_type = ensure_type(data_type, DataType, None) or expr.data_type
         vdecl = self.reduce_vdecl(var_token, data_type)
         assign = self.reduce_assign(self.reduce_symbol_term(vdecl.variable), expr)
+        if variable_created_callback is not None:
+            variable_created_callback(vdecl.variable)
         return self.reduce_block([vdecl, assign])
 
     def reduce_block(self, nodes:list):
@@ -709,17 +721,23 @@ class Cels2AST:
             right = ASTNodes.TypeConvert(right, converter)
         return ASTNodes.Assign(left, right)
 
-    def reduce_binary_operator(self, arg1:ASTNodes.ExpressionNode, op_token:LexicalToken, arg2:ASTNodes.ExpressionNode)->ASTNodes.BinaryOperator:
+    def reduce_binary_operator(self, arg1:ASTNodes.ExpressionNode, op_token:LexicalToken|str, arg2:ASTNodes.ExpressionNode)->ASTNodes.BinaryOperator:
         ensure_type(arg1, ASTNodes.ExpressionNode)
         ensure_type(arg2, ASTNodes.ExpressionNode)
-        ensure_type(op_token, LexicalToken)
-        operator = self.env.op_solver.resolve_binary_operator(op_token.value, arg1.data_type, arg2.data_type)
+        ensure_type(op_token, LexicalToken, str)
+        operator = self.env.op_solver.resolve_binary_operator(self.str_or_token_value(op_token), arg1.data_type, arg2.data_type)
         return ASTNodes.BinaryOperator(operator, arg1, arg2)
+        
+    @staticmethod
+    def str_or_token_value(x:LexicalToken|str)->str:
+        if isinstance(x, LexicalToken): return x.value
+        if isinstance(x, str): return x
+        raise RuntimeError(f"Invalid token type: expected LexicalToken or str, got {type(x)}")
 
-    def reduce_unary_operator(self, op_token:LexicalToken, arg:ASTNodes.ExpressionNode, optype=UnaryOperatorType.PREFIX):
-        ensure_type(op_token, LexicalToken)
+    def reduce_unary_operator(self, op_token:LexicalToken|str, arg:ASTNodes.ExpressionNode, optype=UnaryOperatorType.PREFIX):
+        ensure_type(op_token, LexicalToken, str)
         ensure_type(arg, ASTNodes.ExpressionNode)
-        operator = self.env.op_solver.resolve_unary_operator(op_token.value, arg.data_type, optype)
+        operator = self.env.op_solver.resolve_unary_operator(self.str_or_token_value(op_token), arg.data_type, optype)        
         return ASTNodes.UnaryOperator(operator, arg)
 
 
@@ -730,6 +748,32 @@ class Cels2AST:
     def reduce_package(self, name_token:LexicalToken, block:ASTNodes.Block, scope:Scope):
         scope.metadata['type']='package'
         return ASTNodes.Package(name_token.value, block, scope)
+
+    
+    def reduce_for_range(self, for_iter, loop):        
+        iter_var, init_block, condition, step_logic = for_iter
+        while_node = ASTNodes.While(condition, ASTNodes.Block(loop, step_logic))
+        return ASTNodes.Block(init_block, while_node)
+        
+    def reduce_for_iter(self, iter_token, start:ASTNodes.ExpressionNode, end:ASTNodes.ExpressionNode):
+        ensure_type(iter_token, LexicalToken)
+        ensure_type(start, ASTNodes.ExpressionNode)
+        ensure_type(end, ASTNodes.ExpressionNode)
+        variables = {}        
+        def set_iter_var(var): variables['iter'] = var        
+        def set_stop_var(var): variables['stop'] = var
+        
+        iter_decl = self.reduce_vdecl_with_expr(iter_token, None, start, variable_created_callback=set_iter_var)
+        stop_decl = self.reduce_vdecl_with_expr(self.gen_internal_var_name(), None, end, variable_created_callback=set_stop_var)        
+        
+        init_block = ASTNodes.Block(iter_decl, stop_decl)
+        
+        term = self.reduce_symbol_term
+
+        condition = self.reduce_binary_operator(term(variables['iter']), '<', term(variables['stop']))
+        step_logic = self.reduce_unary_operator('++', term(variables['iter']))
+        
+        return variables['iter'], init_block, condition, step_logic
 
     def reduce_id_defines_scope(self, token):
         self.named_scope_stack.append(token.value)
@@ -761,10 +805,16 @@ class Cels2AST:
             raise ASTException(f"Invalid symbol: expected data type, got {symbol} ({type(symbol).__name__})")
         return symbol
 
-    def reduce_vdecl(self, var_token:LexicalToken, data_type:DataType):
+    def reduce_vdecl(self, var_token:LexicalToken|str, data_type:DataType):
         ensure_type(data_type, DataType)
-        variable = self.env.add_symbol(self.current_scope(), lambda scope: Variable(var_token.value, scope, data_type))
+        if isinstance(var_token, LexicalToken):
+            variable = self.env.add_symbol(self.current_scope(), lambda scope: Variable(var_token.value, scope, data_type))
+        elif isinstance(var_token, str):
+            variable = self.env.add_symbol(self.current_scope(), lambda scope: Variable(var_token, scope, data_type))
+        else:
+            raise RuntimeError(f"Invalid type for variable name token: exprected str or LexicalToken, got {type(var_token)}")
         return ASTNodes.VDecl(variable)
+        
 
     def reduce_addressof(self, term:ASTNodes.ExpressionNode)->ASTNodes.AddressOf:
         return ASTNodes.AddressOf(term)

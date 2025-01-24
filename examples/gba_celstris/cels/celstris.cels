@@ -24,13 +24,21 @@ begin
 		
 		function draw_border():void
 		begin
-			var i = 0;
+			var i = 0;			
+			
 			while i<board_height do
 			begin
 				set_tile(board_y + i, board_x - 1          , 7);
 				set_tile(board_y + i, board_x + board_width, 7);
 				++i;
 			end;
+			
+			for i in 0:board_height do
+			begin
+				set_tile(board_y + i, board_x - 1          , 7);
+				set_tile(board_y + i, board_x + board_width, 7);
+			end;
+			
 			i = -1;
 			while i<=board_width do
 			begin
@@ -102,8 +110,7 @@ begin
 			var falling = true;
 			while falling do
 			begin				
-				var cooldown = 0;
-				while cooldown < 10 do
+				for cooldown in 0:10 do 
 				begin
 					var dir_x = 0;
 					if Bindings::left_key_down() then dir_x = -1; fi;
@@ -112,9 +119,8 @@ begin
 					if Bindings::down_key_held() 
 						then state->try_move_piece_down();
 					fi;
-					cooldown++;
 					suspend;
-				end;
+				end;				
 				falling = state->try_move_piece_down();
 			end;
 			state->copy_piece_to_map();

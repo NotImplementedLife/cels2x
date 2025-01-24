@@ -4,9 +4,9 @@ from cels_ast_nodes import ASTNodes
 from cels2ast import Cels2AST
 from cels_env import CelsEnvironment
 from cels_scope import Symbol
-from cels_symbols import DataType, PrimitiveType, StructType, Field, FunctionOverload, Function, FormalParameter, UnaryOperatorType
+from cels_symbols import DataType, PrimitiveType, StructType, Field, FunctionOverload, Function, FormalParameter, UnaryOperatorType, Variable
 from cels_multiframe import MultiFrameCFGNode, PseudoAST_PreMultiframeFunCall, PseudoAST_PostMultiframeFunCall, MultiframeCFG
-from utils import ensure_type, indent
+from utils import ensure_type, indent, IdProvider
 
 class CppSnippet:    
     def __init__(self, 
@@ -121,7 +121,7 @@ class CelsEnv2Cpp:
         self.binop_translator:dict[BinaryOperator, callable] = {}
         self.unop_translator:dict[UnaryOperator, callable] = {}
         
-        pass
+        self.local_idp = IdProvider()
         
     def identify_symbol(self, symbol:Symbol, identifier:CppIdentifier):
         self.symbol2id[symbol] = identifier
@@ -145,15 +145,17 @@ class CelsEnv2Cpp:
         
     @property
     def env(self): return self._env
+            
         
-    def compile_env(self)->CppSnippet:
-        def symbol2cpp(symbol:Symbol, headers:list[str]|None=None)->CppIdentifier:                                    
+    def compile_env(self)->CppSnippet:    
+    
+        def symbol2cpp(symbol:Symbol, headers:list[str]|None=None)->CppIdentifier:                                                
             path = [symbol.name]
             scope = symbol.scope
             while scope is not None and not scope.name.startswith('@'):
                 path.append(scope.name)
                 scope = scope.parent
-            full_name = '::'.join(path[::-1])
+            full_name = '::'.join(path[::-1])            
             return CppIdentifier(symbol, symbol.name, full_name, headers)
         
         self.identify_symbol(self.env.dtype_bool, CppIdentifier(self.env.dtype_bool, "bool"))
@@ -408,7 +410,8 @@ class CelsEnv2Cpp:
             nonlocal vdecls
             if isinstance(ast_node, ASTNodes.VDecl):
                 def verbatim_local_symbol_id(param):
-                    return CppIdentifier(param, param.name, f"ctx->{param.name}")
+                    name = f"l_{param.name}_{self.local_idp.create_id()}"
+                    return CppIdentifier(param, name, f"ctx->{name}")
                 var = ast_node.variable                
                 sid = verbatim_local_symbol_id(var)                
                 self.identify_symbol(var, sid)
@@ -708,7 +711,11 @@ class CelsEnv2Cpp:
             return snippet
         if isinstance(node, ASTNodes.VDecl):
             variable = node.variable
-            self.identify_symbol(variable, CppIdentifier(variable, variable.name))
+            if '@' in variable.get_full_name():
+                name = f"l_{variable.name}_{self.local_idp.create_id()}"
+                self.identify_symbol(variable, CppIdentifier(variable, name))
+            else:
+                self.identify_symbol(variable, CppIdentifier(variable, variable.name))
             dt_cpp = self.resolve_data_type(variable.data_type)
             snippet+=[dt_cpp, " ", self.resolve_identifier(variable).name]
             return snippet
