@@ -1,0 +1,32 @@
+struct A
+begin
+	var x:int;
+	var y:int;
+	
+	constructor()
+	begin
+		this->x = 2;
+		this->y = 3;
+	end;
+	
+	destructor()
+	begin
+		x = 0; y = 0;
+	end;
+	
+	function sum(): int 
+	begin
+		return x+y;
+	end;
+	
+	function dif(): int 
+	begin
+		return x-y;
+	end;
+	
+end;
+
+function main():void
+begin
+	var a = A(1, 2);	
+end;

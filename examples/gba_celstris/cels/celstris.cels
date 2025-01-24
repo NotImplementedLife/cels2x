@@ -11,10 +11,21 @@ begin
 		var board_height : int;
 		var shadow_map   : ushort[1024];
 		
+		constructor()
+		begin
+			board_x = 10; board_y = 0;
+			board_width = 10; board_height = 18;
+		end;
+		
+		destructor()
+		begin
+			
+		end;
+		
 		function init():void
 		begin
 			board_x = 10; board_y = 0;
-			board_width = 10; board_height = 18;			
+			board_width = 10; board_height = 18;
 		end;
 		
 		function set_tile(y:int, x:int, c:int):void 
@@ -97,7 +108,7 @@ begin
 			state->load_random_piece();
 			var falling = true;
 			while falling do
-			begin				
+			begin
 				for cooldown in 0:10 do 
 				begin
 					var dir_x = 0;

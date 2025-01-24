@@ -98,6 +98,8 @@ class _AST_SymbolTerm(_AST_ExpressionNode, _AST_Addressable):
             super(_AST_SymbolTerm, self).__init__(symbol.data_type)
         elif isinstance(symbol, FormalParameter):
             super(_AST_SymbolTerm, self).__init__(symbol.data_type)
+        elif isinstance(symbol, DataType):
+            super(_AST_SymbolTerm, self).__init__(data_type)
         elif isinstance(symbol, Function):
             super(_AST_SymbolTerm, self).__init__(data_type)
         else:
@@ -397,6 +399,26 @@ class _AST_TaskReady(_AST_ExpressionNode):
 
     def __str__(self):
         return f"taskready({self.task})"
+        
+class _AST_ObjectCreate(_AST_ExpressionNode):
+    args = property(ASTNode.simple_children_list_getter('args'))
+
+    def __init__(self, obj_type:DataType, constr_args:list[_AST_ExpressionNode]):        
+        _AST_ExpressionNode.__init__(self, ensure_type(obj_type, DataType))
+        if not obj_type.is_struct:
+            raise ASTException(f"Struct type expected, got {obj_type}")
+        self.register_children_list_key('args')
+        self.obj_type = obj_type
+                                
+        #self._function_overload = ensure_type(func_overload, FunctionOverload)        
+
+        for arg in constr_args:
+            ensure_type(arg, _AST_ExpressionNode).set_parent(self, 'args')
+    
+    def __str__(self): return f"create({', '.join(map(str, [self.obj_type] + self.args))})"
+    
+    def clone(self):
+        return _AST_ObjectCreate(self.obj_type, [arg.clone() for arg in self.args])
 
 class ASTNodes:
     Block = ASTBlock
@@ -429,3 +451,5 @@ class ASTNodes:
     TaskReady = _AST_TaskReady
 
     UnaryOperator = _AST_UnaryOperator
+    
+    ObjectCreate = _AST_ObjectCreate

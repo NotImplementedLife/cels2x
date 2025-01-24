@@ -28,6 +28,7 @@ class CelsEnvironment:
         self.dtype_function = glb_add_symbol(PrimitiveType.scoped_creator('builtin@function'))
         self.dtype_instance_method = glb_add_symbol(PrimitiveType.scoped_creator('builtin@instance_method'))
         self.dtype_closure_function = glb_add_symbol(PrimitiveType.scoped_creator('builtin@closure_function'))
+        self.dtype_type = glb_add_symbol(PrimitiveType.scoped_creator('builtin@data_type'))
 
     @property
     def internal_sym_id_provider(self): return self._internal_sym_id_provider

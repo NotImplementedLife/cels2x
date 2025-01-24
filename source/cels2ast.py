@@ -68,8 +68,10 @@ class Cels2AST:
         kw_bool        = rcf.terminal(CelsTokenTypes.KW_BOOL.name)
         kw_break       = rcf.terminal(CelsTokenTypes.KW_BREAK.name)
         kw_const       = rcf.terminal(CelsTokenTypes.KW_CONST.name)
+        kw_constructor = rcf.terminal(CelsTokenTypes.KW_CONSTRUCTOR.name)
         kw_continue    = rcf.terminal(CelsTokenTypes.KW_CONTINUE.name)
         kw_cpp_include = rcf.terminal(CelsTokenTypes.KW_CPP_INCLUDE.name)
+        kw_destructor  = rcf.terminal(CelsTokenTypes.KW_DESTRUCTOR.name)
         kw_do          = rcf.terminal(CelsTokenTypes.KW_DO.name)
         kw_end         = rcf.terminal(CelsTokenTypes.KW_END.name)
         kw_else        = rcf.terminal(CelsTokenTypes.KW_ELSE.name)
@@ -171,6 +173,8 @@ class Cels2AST:
         STRUCT_MEMBERS = rcf.non_terminal("STRUCT_MEMBERS")
         STRUCT_MEMBER = rcf.non_terminal("STRUCT_MEMBER")
         STRUCT_METHOD_HEADER = rcf.non_terminal("STRUCT_METHOD_HEADER")
+        STRUCT_CONSTR_HEADER = rcf.non_terminal("STRUCT_CONSTR_HEADER")
+        STRUCT_DESTR_HEADER = rcf.non_terminal("STRUCT_DESTR_HEADER")
 
         LITERAL       = rcf.non_terminal("LITERAL")
 
@@ -272,14 +276,27 @@ class Cels2AST:
             ( STRUCT_MEMBERS << STRUCT_MEMBER * s_semicolon * STRUCT_MEMBERS).on_build(rc.call(self.reduce_list, rc.arg(0), rc.arg(2))),
             ( STRUCT_MEMBERS << eps).on_build(rc.call(self.empty_list)),
 
+            # STRUCT_METHOD_HEADER calls reduce_func_header which pushes the function overload's scope
+            # hence the need to SCOPE_POP at the end of the rule
             ( STRUCT_MEMBER << STRUCT_METHOD_HEADER * kw_begin * STMT_BLOCK * kw_end * SCOPE_POP).on_build(rc.call(self.reduce_func_decl, rc.arg(0), rc.arg(2))),
             ( STRUCT_MEMBER << STRUCT_METHOD_HEADER * SCOPE_POP).on_build(rc.call(self.reduce_func_decl, rc.arg(0))),
+            
+            ( STRUCT_MEMBER << STRUCT_CONSTR_HEADER * kw_begin * STMT_BLOCK * kw_end * SCOPE_POP).on_build(rc.call(self.reduce_func_decl, rc.arg(0), rc.arg(2))),
+            ( STRUCT_MEMBER << STRUCT_CONSTR_HEADER * SCOPE_POP).on_build(rc.call(self.reduce_func_decl, rc.arg(0))),
+            
+            ( STRUCT_MEMBER << STRUCT_DESTR_HEADER * kw_begin * STMT_BLOCK * kw_end * SCOPE_POP).on_build(rc.call(self.reduce_func_decl, rc.arg(0), rc.arg(2))),
+            ( STRUCT_MEMBER << STRUCT_DESTR_HEADER * SCOPE_POP).on_build(rc.call(self.reduce_func_decl, rc.arg(0))),
 
             ( STRUCT_MEMBER << kw_var * t_id * s_colon * DATA_TYPE).on_build(rc.call(self.reduce_field_decl, rc.arg(1), rc.arg(3))),
 
             ( STRUCT_METHOD_HEADER << FUNC_SPECS * kw_function * t_id * s_lparen * FPARAMS * s_rparen * s_colon * DATA_TYPE)
                 .on_build(rc.call(self.reduce_struct_method_header, rc.arg(2), rc.arg(4), rc.arg(7), rc.arg(0))),
 
+            ( STRUCT_CONSTR_HEADER << kw_constructor * s_lparen * FPARAMS * s_rparen)
+                .on_build(rc.call(self.reduce_struct_constructor_header, rc.arg(2))),
+
+            ( STRUCT_DESTR_HEADER << kw_destructor * s_lparen * s_rparen)
+                .on_build(rc.call(self.reduce_struct_destructor_header)),
 
             ( FUNC_HEADER << FUNC_SPECS * kw_function * t_id * s_lparen * FPARAMS * s_rparen * s_colon * DATA_TYPE)
                 .on_build(rc.call(self.reduce_func_header, rc.arg(2), rc.arg(4), rc.arg(7), rc.arg(0))),
@@ -520,6 +537,13 @@ class Cels2AST:
         return ASTNodes.Return(value)
 
     def reduce_call(self, callable_item:ASTNodes.ExpressionNode, args:list[ASTNodes.ExpressionNode])->ASTNodes.ExpressionNode:
+        print("DTYPE = ", callable_item.data_type)
+        if callable_item.data_type==self.env.dtype_type:
+            if not isinstance(callable_item, ASTNodes.SymbolTerm):
+                raise ASTException("Expression of type `data type` must be a symbol")
+            objtype = callable_item.symbol
+            return ASTNodes.ObjectCreate(objtype, args)
+    
         if callable_item.data_type==self.env.dtype_function:
             if not isinstance(callable_item, ASTNodes.SymbolTerm):
                 raise ASTException("Expression of type function must be a symbol")
@@ -624,13 +648,26 @@ class Cels2AST:
         struct_type.add_member(overload.func_symbol)
 
         return overload
+        
+    def reduce_struct_constructor_header(self, params:list[tuple[str, DataType]])->FunctionOverload:
+        _, struct_type = self.current_struct_context()
+        params = [("this", struct_type.make_pointer())] + params
+        overload = self.reduce_func_header("@constructor", params, self.env.dtype_void, None, struct_type)
+        return overload
+        
+    def reduce_struct_destructor_header(self)->FunctionOverload:
+        _, struct_type = self.current_struct_context()
+        params = [("this", struct_type.make_pointer())]
+        overload = self.reduce_func_header("@destructor", params, self.env.dtype_void, None, struct_type)
+        return overload
+        
 
-    def reduce_func_header(self, name_tk:LexicalToken, params:list[tuple[str, DataType]], ret_type:DataType, specs=None, declaring_type=None)-> FunctionOverload:
-        ensure_type(name_tk, LexicalToken)
+    def reduce_func_header(self, name_tk:LexicalToken|str, params:list[tuple[str, DataType]], ret_type:DataType, specs=None, declaring_type=None)-> FunctionOverload:
+        ensure_type(name_tk, LexicalToken, str)
         ensure_type(params, list)
         ensure_type(ret_type, DataType)
 
-        name = name_tk.value
+        name = self.str_or_token_value(name_tk)
         func_sym = self.current_scope().try_resolve_immediate_symbol(name)
 
         specs_dict = {}
@@ -702,6 +739,9 @@ class Cels2AST:
         if isinstance(symbol, Field):
             this = self.reduce_symbol_term(self.current_scope().try_resolve_upper_immediate_symbol("this"))
             return self.reduce_pointer_member_access(this, symbol.name)
+            
+        if isinstance(symbol, DataType):
+            custom_data_type = self.env.dtype_type
 
         return ASTNodes.SymbolTerm(symbol, custom_data_type)
 

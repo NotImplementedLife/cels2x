@@ -64,6 +64,9 @@ class CppSnippet:
             code+=f"#include {header}\n"
         code += self.code
         return code
+    
+    def with_code(self, modifier):
+        return CppSnippet([modifier(self.code)], self.headers)
 
 class CppFragment:
     def __init__(self, ref_obj, namespace:str):
@@ -293,8 +296,8 @@ class CelsEnv2Cpp:
         """
 
         defi, impl = self.__assemble_fragments(fragments)
-
-
+        impl = impl.with_code(lambda s: s.replace("(*(this)).", "this->"))
+        
         return CppSnippet([defi, '\n// IMPL\n', impl])
 
     def __sort_fragments(self, fragments):
@@ -774,10 +777,7 @@ class CelsEnv2Cpp:
 
     def parse_scope_tree(self, on_scope_enter, on_scope_exit, on_symbol_encountered):
         self._parse_scope_tree_helper(self.env.global_scope, on_scope_enter, on_scope_exit, on_symbol_encountered)
-
-
-    def build_from_ast(self, ast:ASTNode)->CppSnippet:
-        pass
+    
 
 class Cels2Cpp:
     def __init__(self, env:CelsEnvironment):
