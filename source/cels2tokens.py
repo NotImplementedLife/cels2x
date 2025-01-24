@@ -71,6 +71,8 @@ class CelsTokenTypes:
     S_EQEQ         = CelsTokenType(__idp, "S_EQEQ"        , r'==')
     S_LTE          = CelsTokenType(__idp, "S_LTE"         , r'<=')
     S_NEQ          = CelsTokenType(__idp, "S_NEQ"         , r'!=')
+    S_INC          = CelsTokenType(__idp, "S_INC"         , r'\+\+')
+    S_DEC          = CelsTokenType(__idp, "S_DEC"         , r'\-\-')
 
     S_AMPERSAND    = CelsTokenType(__idp, "S_AMPERSAND"   , r'\&')    
     S_COLON        = CelsTokenType(__idp, "S_COLON"       , r':')    

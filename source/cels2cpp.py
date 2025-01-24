@@ -4,7 +4,7 @@ from cels_ast_nodes import ASTNodes
 from cels2ast import Cels2AST
 from cels_env import CelsEnvironment
 from cels_scope import Symbol
-from cels_symbols import DataType, PrimitiveType, StructType, Field, FunctionOverload, Function, FormalParameter
+from cels_symbols import DataType, PrimitiveType, StructType, Field, FunctionOverload, Function, FormalParameter, UnaryOperatorType
 from cels_multiframe import MultiFrameCFGNode, PseudoAST_PreMultiframeFunCall, PseudoAST_PostMultiframeFunCall, MultiframeCFG
 from utils import ensure_type, indent
 
@@ -165,6 +165,8 @@ class CelsEnv2Cpp:
         
         dtype_int = self.env.dtype_int
         dtype_uint = self.env.dtype_uint
+        dtype_short = self.env.dtype_short
+        dtype_ushort = self.env.dtype_ushort
         dtype_bool = self.env.dtype_bool
         
         rbo = self.env.op_solver.resolve_binary_operator
@@ -197,6 +199,17 @@ class CelsEnv2Cpp:
         self.unop_translator[ruo('-', dtype_uint)] = lambda x: ["(-",x,")"]
         self.unop_translator[ruo('+', dtype_int)] = lambda x: ["(+",x,")"]
         self.unop_translator[ruo('+', dtype_uint)] = lambda x: ["(+",x,")"]
+        
+        def register__inc_dec(dtype):
+            self.unop_translator[ruo('++', dtype, UnaryOperatorType.PREFIX)] = lambda x: ["(++",x,")"]
+            self.unop_translator[ruo('--', dtype, UnaryOperatorType.PREFIX)] = lambda x: ["(--",x,")"]
+            self.unop_translator[ruo('++', dtype, UnaryOperatorType.POSTFIX)] = lambda x: ["(",x,"++)"]
+            self.unop_translator[ruo('--', dtype, UnaryOperatorType.POSTFIX)] = lambda x: ["(",x,"--)"]
+            
+        register__inc_dec(dtype_int)
+        register__inc_dec(dtype_uint)
+        register__inc_dec(dtype_short)
+        register__inc_dec(dtype_ushort)
 
         #print([str(key) for key, _ in self.binop_translator.items()])
         

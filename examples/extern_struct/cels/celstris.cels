@@ -9,7 +9,7 @@ begin
 	end;
 	
 	function main_draw(state: State*): void
-	begin		
+	begin
 		state->draw_on_vram();
 	end;
 
@@ -17,4 +17,6 @@ begin
 	begin
 		
 	end;
+	
+	
 end;

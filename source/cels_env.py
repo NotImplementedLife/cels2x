@@ -1,6 +1,6 @@
 from __future__ import annotations
 from cels_scope import Scope, Symbol, ScopeStack, ScopeNameProvider, ScopeResolveStrategy
-from cels_symbols import Variable, FormalParameter, Function, FunctionOverload, BinaryOperator, IndexerArchetype, Indexer
+from cels_symbols import Variable, FormalParameter, Function, FunctionOverload, BinaryOperator, IndexerArchetype, Indexer, UnaryOperatorType
 from cels_symbols import OperatorSolver
 from cels_symbols import DataType, PrimitiveType, StructType, Field
 from utils import IdProvider
@@ -92,6 +92,17 @@ class CelsEnvironment:
         
         env.op_solver.register_unary_operator('+', dtype_int, dtype_int)
         env.op_solver.register_unary_operator('+', dtype_uint, dtype_uint)
+        
+        def register_inc_dec(dtype):
+            env.op_solver.register_unary_operator('++', dtype, dtype, UnaryOperatorType.PREFIX)
+            env.op_solver.register_unary_operator('--', dtype, dtype, UnaryOperatorType.PREFIX)
+            env.op_solver.register_unary_operator('++', dtype, dtype, UnaryOperatorType.POSTFIX)
+            env.op_solver.register_unary_operator('--', dtype, dtype, UnaryOperatorType.POSTFIX)
+        
+        register_inc_dec(dtype_int)
+        register_inc_dec(dtype_uint)
+        register_inc_dec(dtype_short)
+        register_inc_dec(dtype_ushort)
         
         env.op_solver.register_converter(dtype_int, dtype_float)
         env.op_solver.register_converter(dtype_int, dtype_short)

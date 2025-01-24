@@ -284,12 +284,20 @@ class Indexer:
         self.output_type = ensure_type(output_type, DataType)
     def __str__(self): return f"indexer {self.element_type}[{self.index_type}]:{self.output_type}"
 
+class UnaryOperatorType:
+    PREFIX = "prefix"
+    POSTFIX = "postfix"
+
 class UnaryOperator:
-    def __init__(self, symbol:str, arg_type:DataType, res_type:DataType):
+    def __init__(self, symbol:str, arg_type:DataType, res_type:DataType, optype:str=UnaryOperatorType.PREFIX):
         self.symbol = symbol
         self.arg_type = ensure_type(arg_type, DataType)        
         self.res_type = ensure_type(res_type, DataType)
+        self.optype = optype
     def __str__(self): return f"operator {self.symbol}({self.arg_type}):{self.res_type}"
+    
+    def is_prefix(self): return self.optype == UnaryOperatorType.PREFIX
+    def is_postfix(self): return self.optype == UnaryOperatorType.POSTFIX
 
 class OperatorSolver:
     def __init__(self):
@@ -313,18 +321,18 @@ class OperatorSolver:
             value_fun=lambda: BinaryOperator(symbol, arg1_type, arg2_type, return_type),
             err_fun=lambda: f"Operator {symbol}({arg1_type}, {arg2_type}) is already defined" )
 
-    def register_unary_operator(self, symbol:str, arg_type:DataType, return_type:DataType)->BinaryOperator:
-        return self.__register(self.unary_operators, key=(symbol, arg_type), 
-            value_fun=lambda: UnaryOperator(symbol, arg_type, return_type),
-            err_fun=lambda: f"Operator {symbol}({arg_type}) is already defined" )
+    def register_unary_operator(self, symbol:str, arg_type:DataType, return_type:DataType, optype:str=UnaryOperatorType.PREFIX)->BinaryOperator:
+        return self.__register(self.unary_operators, key=(symbol, arg_type, optype), 
+            value_fun=lambda: UnaryOperator(symbol, arg_type, return_type, optype),
+            err_fun=lambda: f"Operator {optype} {symbol}({arg_type}) is already defined" )
         
     def resolve_binary_operator(self, symbol:str, arg1_type:DataType, arg2_type:DataType)->BinaryOperator:
         return self.__resolve(self.binary_operators, key=(symbol, arg1_type, arg2_type),
             err_fun=lambda:f"No definition for operator {symbol}({arg1_type}, {arg2_type})")
     
-    def resolve_unary_operator(self, symbol:str, arg_type:DataType)->BinaryOperator:
-        return self.__resolve(self.unary_operators, key=(symbol, arg_type),
-            err_fun=lambda:f"No definition for operator {symbol}({arg_type})")
+    def resolve_unary_operator(self, symbol:str, arg_type:DataType, optype:str=UnaryOperatorType.PREFIX)->BinaryOperator:
+        return self.__resolve(self.unary_operators, key=(symbol, arg_type, optype),
+            err_fun=lambda:f"No definition for operator {optype} {symbol}({arg_type})")
         
     def register_converter(self, input_type, output_type):
         assert isinstance(input_type, DataType), f"DataType expected, got {type(input_type)}"
