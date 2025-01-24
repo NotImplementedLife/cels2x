@@ -109,7 +109,8 @@ begin
 		while running do
 		begin
 			state->load_random_piece();
-			if not state->try_move_piece_x(0) then running=false; fi;
+			/*if not state->try_move_piece_x(0) then begin running=false; break; end; fi;*/
+			if not state->try_move_piece_x(0) then begin break; end; fi;
 			var falling = true;
 			while falling do
 			begin
@@ -137,10 +138,10 @@ begin
 		var state: State;
 		
 		multiframe
-		begin	
+		begin
 			frames main_loop(&state);
 			
-			on_frame_start 
+			on_frame_start
 			begin
 				VBlankIntrWait();
 				main_draw(&state);
@@ -150,8 +151,6 @@ begin
 			on_frame_end begin end;
 			
 			runtime_stacks = 4;
-						
-			
 		end;
 	end;*/
 end;
