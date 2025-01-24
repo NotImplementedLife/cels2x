@@ -1,4 +1,0 @@
-function sum(a:int, b:int):int
-begin
-	return a+b;
-end;
