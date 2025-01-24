@@ -511,7 +511,10 @@ class Cels2AST:
         if callable_item.data_type==self.env.dtype_function:
             if not isinstance(callable_item, ASTNodes.SymbolTerm):
                 raise ASTException("Expression of type function must be a symbol")
-            function = callable_item.symbol
+            function = callable_item.symbol                        
+            if function.is_method:
+                this = self.reduce_symbol_term(self.current_scope().try_resolve_upper_immediate_symbol("this"))
+                args = [this] + args
             arg_types = list(map(lambda a:a.data_type, args))
             overload = self.match_function_calling_args(function, arg_types)
             
@@ -681,12 +684,12 @@ class Cels2AST:
     def reduce_symbol_term(self, symbol:Symbol)->ASTNodes.SymbolTerm:
         custom_data_type:DataType|None = None
         
+        print("QQQQQQQQQQQQQQQQQQQQQQ", symbol, type(symbol))
+        
         if isinstance(symbol, Function):
             custom_data_type = self.env.dtype_function
         
-        if isinstance(symbol, Field):
-            print("CURRENT SCOPE = ", self.current_scope())
-            print("THIS = ", self.current_scope().try_resolve_upper_immediate_symbol("this"))
+        if isinstance(symbol, Field):            
             this = self.reduce_symbol_term(self.current_scope().try_resolve_upper_immediate_symbol("this"))
             return self.reduce_pointer_member_access(this, symbol.name)
         
