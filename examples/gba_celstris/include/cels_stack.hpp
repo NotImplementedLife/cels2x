@@ -554,6 +554,10 @@ namespace Celesta
 		#define CELS_RUNTIME_STACK_SIZE 512
 	#endif
 	
+	#ifndef CELS_RUNTIME
+		#define CELS_RUNTIME Celesta::Defaults::cels_runtime
+	#endif
+	
 	namespace Defaults
 	{	
 		Celesta::CelsRuntime<CELS_RUNTIME_STACKS_COUNT, CELS_RUNTIME_STACK_SIZE> cels_runtime{CELS_ERROR_HANDLER};

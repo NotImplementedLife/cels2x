@@ -418,6 +418,26 @@ class _AST_ObjectCreate(_AST_ExpressionNode):
     
     def clone(self):
         return _AST_ObjectCreate(self.obj_type, [arg.clone() for arg in self.args])
+        
+class _AST_MultiframeLaunch(ASTNode):
+    funcall = property(ASTNode.simple_child_getter('funcall'), ASTNode.simple_child_setter('funcall'))
+    on_frame_start = property(ASTNode.simple_child_getter('on_frame_start'), ASTNode.simple_child_setter('on_frame_start'))
+    on_frame_end = property(ASTNode.simple_child_getter('on_frame_end'), ASTNode.simple_child_setter('on_frame_end'))
+    
+    def __init__(self, funcall:_AST_FunOverloadCall, on_frame_start:ASTBlock, on_frame_end:ASTBlock):
+        ASTNode.__init__(self)
+        self.register_child_key('funcall')
+        self.register_child_key('on_frame_start')
+        self.register_child_key('on_frame_end')
+        self.funcall = ensure_type(funcall, _AST_FunOverloadCall)
+        self.on_frame_start = ensure_type(on_frame_start, ASTBlock)
+        self.on_frame_end = ensure_type(on_frame_end, ASTBlock)
+    
+    def __str__(self):
+        return f'multiframe launch {self.funcall} (on_frame_start={self.on_frame_start}, on_frame_end={self.on_frame_end})'
+    
+    def clone(self):        
+        return _AST_MultiframeLaunch(self.funcall.clone(), self.on_frame_start.clone(), self.on_frame_end.clone())
 
 class ASTNodes:
     Block = ASTBlock
@@ -452,3 +472,5 @@ class ASTNodes:
     UnaryOperator = _AST_UnaryOperator
     
     ObjectCreate = _AST_ObjectCreate
+    
+    MultiframeLaunch = _AST_MultiframeLaunch

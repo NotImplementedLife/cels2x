@@ -23,24 +23,8 @@ int main(void) {
 	
 	prepare_vram();
 	init_video();
-	
-	Celstris::State state{};
-	
-	auto* ctrl = cels_runtime.main_ctrl();
-	
-	auto* frame = ctrl->push<Celstris::main_loop>();
-	frame->params.state = &state;
-	ctrl->call(frame, Celstris::main_loop::f0, nullptr, nullptr);
-	
-	while(true)
-	{
-		VBlankIntrWait();
-		Celstris::main_draw(&state);
-		update_keys();
-		if(!cels_runtime.run_step())
-			break;
-	}
-	ctrl->pop();
+
+	cels_main(); // calls cels_main() from celstris.cels
 	
 	nogba_write_log("Done.");
 	while(1) VBlankIntrWait();

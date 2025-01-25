@@ -824,6 +824,44 @@ class CelsEnv2Cpp:
             snippet += ")"
             return snippet
             
+        if isinstance(node, ASTNodes.MultiframeLaunch):
+            overload = node.funcall.function_overload
+            func_name = self.resolve_identifier(overload.func_symbol)
+            
+            ctrl_id = f"l_ctrl{self.local_idp.create_id()}"
+            frame_id = f"l_frame{self.local_idp.create_id()}"
+            running_id = f"l_running{self.local_idp.create_id()}"
+            
+            snippet += [
+                f"auto* {ctrl_id} = CELS_RUNTIME.main_ctrl();\n",
+                f"auto* {frame_id} = {ctrl_id}->push<", func_name.full_name, ">();\n"
+            ]
+            
+            for i in range(len(node.funcall.args)):
+                param_name = overload.params[i].name
+                arg = self.__compile_ast_node(node.funcall.args[i], prio_build)
+                snippet += [f"{frame_id}->params.{param_name} = ", arg, ";\n"]
+            
+            snippet += [f"{ctrl_id}->call({frame_id}, ", func_name.full_name, "::f0, nullptr, nullptr);\n"]
+            
+            on_frame_start = self.__compile_ast_node(node.on_frame_start, prio_build)
+            on_frame_end = self.__compile_ast_node(node.on_frame_end, prio_build)
+            
+            inner_snippet = CppSnippet([])
+            inner_snippet += on_frame_start
+            inner_snippet += f"{running_id} = {ctrl_id}->run_step();\n"
+            inner_snippet += on_frame_end
+            
+            snippet += [
+                f"for(bool {running_id}=true; {running_id};)\n",
+                "{\n",
+                inner_snippet.indent(),
+                "}\n",
+            ]
+            snippet += f"{ctrl_id}->pop();\n"
+            
+            return CppSnippet(["{\n", snippet.indent(), "\n}\n"])
+            
         if isinstance(node, ASTNodes.TaskStart):
             raise RuntimeError("Wrong route, should have been multiframe prio_build")
 

@@ -78,6 +78,7 @@ class Cels2AST:
         kw_extern      = rcf.terminal(CelsTokenTypes.KW_EXTERN.name)
         kw_for         = rcf.terminal(CelsTokenTypes.KW_FOR.name)
         kw_fi          = rcf.terminal(CelsTokenTypes.KW_FI.name)
+        kw_frames      = rcf.terminal(CelsTokenTypes.KW_FRAMES.name)
         kw_function    = rcf.terminal(CelsTokenTypes.KW_FUNCTION.name)
         kw_if          = rcf.terminal(CelsTokenTypes.KW_IF.name)
         kw_import      = rcf.terminal(CelsTokenTypes.KW_IMPORT.name)
@@ -88,6 +89,8 @@ class Cels2AST:
         kw_nand        = rcf.terminal(CelsTokenTypes.KW_NAND.name)
         kw_nor         = rcf.terminal(CelsTokenTypes.KW_NOR.name)
         kw_not         = rcf.terminal(CelsTokenTypes.KW_NOT.name)
+        kw_on_frame_start = rcf.terminal(CelsTokenTypes.KW_ON_FRAME_START.name)
+        kw_on_frame_end   = rcf.terminal(CelsTokenTypes.KW_ON_FRAME_END.name)
         kw_or          = rcf.terminal(CelsTokenTypes.KW_OR.name)
         kw_package     = rcf.terminal(CelsTokenTypes.KW_PACKAGE.name)
         kw_return      = rcf.terminal(CelsTokenTypes.KW_RETURN.name)
@@ -196,6 +199,9 @@ class Cels2AST:
         FPARAM      = rcf.non_terminal("FPARAM")
 
         FOR_ITER = rcf.non_terminal("FOR_ITER")
+        
+        MFLAUNCH_OPTS = rcf.non_terminal("MFLAUNCH_OPTS")
+        MFLAUNCH_OPT  = rcf.non_terminal("MFLAUNCH_OPT")
 
         SCOPE_PUSH       = rcf.non_terminal("SCOPE_PUSH")
         NAMED_SCOPE_PUSH = rcf.non_terminal("NAMED_SCOPE_PUSH")
@@ -332,6 +338,18 @@ class Cels2AST:
             ( STMT << kw_if * E * kw_then * ANON_SCOPED_BLOCK * s_semicolon * kw_else * ANON_SCOPED_BLOCK * s_semicolon * kw_fi).on_build(rc.call(ASTNodes.If, rc.arg(1), rc.arg(3), rc.arg(6))),
             ( STMT << kw_if * E * kw_then * ANON_SCOPED_BLOCK * s_semicolon * kw_fi).on_build(rc.call(ASTNodes.If, rc.arg(1), rc.arg(3), None)),
 
+            # Multiframe launch
+            
+            ( STMT << kw_multiframe * kw_begin * MFLAUNCH_OPTS * kw_end).on_build(rc.call(self.reduce_multiframe_launch, rc.arg(2))),
+            
+            ( MFLAUNCH_OPTS << MFLAUNCH_OPT * s_semicolon * MFLAUNCH_OPTS).on_build(rc.call(self.reduce_list, rc.arg(0), rc.arg(2))),
+            ( MFLAUNCH_OPTS << eps).on_build(rc.call(self.empty_list)),
+    
+            ( MFLAUNCH_OPT << kw_frames * E_CALL).on_build(rc.call(self.reduce_key_value_tuple, "frames", rc.arg(1))),
+            ( MFLAUNCH_OPT << kw_on_frame_start * ANON_SCOPED_BLOCK_ENCAPSULED).on_build(rc.call(self.reduce_key_value_tuple, "on_frame_start", rc.arg(1))),
+            ( MFLAUNCH_OPT << kw_on_frame_end * ANON_SCOPED_BLOCK_ENCAPSULED).on_build(rc.call(self.reduce_key_value_tuple, "on_frame_end", rc.arg(1))),
+
+            # Expressions
             ( STMT << E).on_build(rc.arg(0)),
 
             (E << E_L_NOR).on_build(rc.arg(0)),
@@ -856,7 +874,20 @@ class Cels2AST:
         else:
             raise RuntimeError(f"Invalid type for variable name token: exprected str or LexicalToken, got {type(var_token)}")
         return ASTNodes.VDecl(variable)
-
+        
+    def reduce_key_value_tuple(self, a, b): return a,b
+    
+    def reduce_multiframe_launch(self, opts:list[tuple[str, any]]):
+        opts = {k:v for k,v in opts}
+        if not 'frames' in opts:
+            raise ASTException('Multiframe launch with no specified function (frames clause missing)')
+        fcall = opts['frames']
+        if not (isinstance(fcall, ASTNodes.FunOverloadCall) and fcall.function_overload.is_multiframe):
+            raise ASTException('Only multiframe function calls are allowed in multiframe frames clause')
+        on_frame_start = opts.get('on_frame_start', ASTNodes.Block())
+        on_frame_end = opts.get('on_frame_end', ASTNodes.Block())
+        
+        return ASTNodes.MultiframeLaunch(fcall, on_frame_start, on_frame_end)
 
     def reduce_addressof(self, term:ASTNodes.ExpressionNode)->ASTNodes.AddressOf:
         return ASTNodes.AddressOf(term)
@@ -907,6 +938,8 @@ class Cels2AST:
 
         mf_calls = []
         def identify_multiframe_calls(node):            
+            if isinstance(node, ASTNodes.MultiframeLaunch):
+                return True
             if isinstance(node, ASTNodes.FunOverloadCall) and node.function_overload.is_multiframe:
                 mf_calls.append(node)
                 return True

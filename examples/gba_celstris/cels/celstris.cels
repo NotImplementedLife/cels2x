@@ -133,26 +133,27 @@ begin
 			state->copy_piece_to_map();
 		end;
 	end;
-	
-	/*Multiframe launch proposal:*/
-	
-	/*function entry_point(): void
-	begin
-		var state: State;
 		
-		multiframe(engine = default)
-		multiframe(engine = ( runtime_stacks:4 ))
+end;
+
+extern function VBlankIntrWait():void;
+extern function update_keys():void;
+
+function cels_main(): void
+begin
+	var state = Celstris::State();
+	
+	multiframe
+	begin
+		frames Celstris::main_loop(&state);
+		
+		on_frame_start
 		begin
-			frames main_loop(&state);
-			
-			on_frame_start
-			begin
-				VBlankIntrWait();
-				main_draw(&state);
-				update_keys();
-			end;
-			
-			on_frame_end begin end;
+			VBlankIntrWait();
+			update_keys();
+			Celstris::main_draw(&state);
 		end;
-	end;*/
+		
+		on_frame_end begin end;
+	end;
 end;
