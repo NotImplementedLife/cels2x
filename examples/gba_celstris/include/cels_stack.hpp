@@ -11,7 +11,7 @@ namespace Celesta
 		int top = 0;
 		
 		void* push(int bytes_size, int align)
-		{			
+		{
 			int return_index = top;
 			align = (align+3)/4;
 			int r = top%align;
@@ -204,8 +204,10 @@ namespace Celesta
 		
 		template<typename CTX>
 		CTX* push()
-		{			
+		{	
+			debug_offset("PUSHING", (void*)sizeof(CTX));
 			auto* offset = stack->push<CTX>();
+			debug_offset("PUSH", offset);
 			if(offset==nullptr && error_handler)
 			{
 				error_handler("Cels: Stack overflow");

@@ -26,7 +26,7 @@ class MultiFrameCFGNode:
         else:
             return f"{{Node #{self.node_id} {self.node_type}, next={list(map(lambda _:_.node_id,self.next_nodes))}, f_head={self.data['id']}}}"
 
-    def ungroup_ast(self):
+    def _ungroup_ast(self, state):
         if isinstance(self.ast, ASTNodes.Block):
             children = self.ast.children
             if len(children)==0:
@@ -41,11 +41,26 @@ class MultiFrameCFGNode:
             nodes[-1].next_nodes = n_nodes
 
             for n in nodes:
-                n.ungroup_ast()
+                n._ungroup_ast(state)
             return
         if isinstance(self.ast, ASTNodes.While):
             cond = self.ast.condition
             block = self.ast.block
+            
+            breaks = []
+            continues = []
+            
+            def identify_jumps(node):
+                # Do not look into nested loops
+                if isinstance(node, ASTNodes.While) and node is not self.ast:
+                    return True
+                if isinstance(node, ASTNodes.Break):
+                    breaks.append(node)
+                if isinstance(node, ASTNodes.Continue):
+                    continues.append(node)
+                return False
+            
+            self.ast.parse(identify_jumps)
 
             assert len(self.next_nodes)==1
 
@@ -56,8 +71,17 @@ class MultiFrameCFGNode:
 
             self.ast = cond
             self.node_type='c'
+            
+            for b in breaks: state['break_links'][b] = [self.next_nodes[0]]
+            for c in continues: state['continue_links'][c] = [self]
 
-            n_block.ungroup_ast()
+            n_block._ungroup_ast(state)
+            return
+        if isinstance(self.ast, ASTNodes.Break):            
+            self.next_nodes = state['break_links'][self.ast]
+            return
+        if isinstance(self.ast, ASTNodes.Continue):
+            self.next_nodes = state['continue_links'][self.ast]
             return
         if isinstance(self.ast, ASTNodes.If):
             cond = self.ast.condition
@@ -80,12 +104,15 @@ class MultiFrameCFGNode:
             self.ast = cond
             self.node_type = 'c'
 
-            then_node.ungroup_ast()
+            then_node._ungroup_ast(state)
             if else_node is not None:
-                else_node.ungroup_ast()
-
+                else_node._ungroup_ast(state)
             return
-
+    
+    def ungroup_ast(self): 
+        state = { 'break_links':{}, 'continue_links':{} }
+        return self._ungroup_ast(state)
+    
 
     def __copy_structure(self, refs):
         if self.node_id in refs: return refs[self.node_id]

@@ -577,6 +577,9 @@ class CelsEnv2Cpp:
 
         cfg = MultiframeCFG(overload)
         cfg.graph.ungroup_ast()
+        
+        print(cfg.tree2string(cfg.start_node))
+        
         components = cfg.find_functional_components()
 
         vdecls = []
