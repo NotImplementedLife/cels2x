@@ -66,14 +66,16 @@ namespace Celstris::Bindings
 		}
 	}
 	
+	
+	
 	void copy_piece_to_vram(unsigned short* piece, int y, int x)
-	{
+	{		
 		for(int i=0;i<4;i++)
-		{
+		{			
 			for(int j=0;j<4;j++)
-			{
+			{				
 				if(piece[4*i+j]!=0)
-					map_ptr[32*(y+i)+(x+j)] = piece[4*i+j];
+					map_ptr[32*(y+i)+(x+j)] = piece[4*i+j];				
 			}
 		}
 	}

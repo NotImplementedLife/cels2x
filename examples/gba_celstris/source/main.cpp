@@ -9,13 +9,14 @@
 
 #define CELS_DEFAULTS
 #define CELS_ERROR_HANDLER ([](const char* message){ nogba_write_log(message); while(1);})
-#define CELS_NAMED // log function names when calling (debug only)
+//#define CELS_NAMED // log function names when calling (debug only)
 #include "cels_stack.hpp"
 
 #include "cels_scripts.hpp"
 
+Celesta::CelsRuntime<4> cels_runtime{CELS_ERROR_HANDLER};
 
-int main(void) {
+int main(void) {		
 	irqInit();
 	irqEnable(IRQ_VBLANK);	
 	nogba_write_log("GBA init");
@@ -23,10 +24,7 @@ int main(void) {
 	prepare_vram();
 	init_video();
 	
-	Celstris::State state{};	
-	
-	Celesta::CelsRuntime<4> cels_runtime;
-	cels_runtime.set_error_handler(CELS_ERROR_HANDLER);
+	Celstris::State state{};
 	
 	auto* ctrl = cels_runtime.main_ctrl();
 	
@@ -42,6 +40,7 @@ int main(void) {
 		if(!cels_runtime.run_step())
 			break;
 	}
+	ctrl->pop();
 	
 	nogba_write_log("Done.");
 	while(1) VBlankIntrWait();

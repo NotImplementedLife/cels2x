@@ -11,10 +11,16 @@ begin
 		var board_height : int;
 		var shadow_map   : ushort[1024];
 		
+		var piece_tiles : ushort[16];
+		var piece_x : int;
+		var piece_y : int;
+		
 		constructor()
 		begin
 			board_x = 10; board_y = 0;
 			board_width = 10; board_height = 18;
+			piece_x = 0; piece_y = 0;
+			for i in 0:16 do piece_tiles[i] = 0;
 		end;
 		
 		destructor()
@@ -45,10 +51,7 @@ begin
 			for i in -1:board_width+1 do
 				set_tile(board_y + board_height, board_x +i , 7);			
 		end;
-		
-		var piece_tiles : ushort[16];
-		var piece_x : int;
-		var piece_y : int;
+				
 		
 		function draw_piece():void 
 		begin
@@ -102,6 +105,7 @@ begin
 	multiframe function main_loop(state: State*): void
 	begin
 		*state = State();
+		state->init();
 		state->draw_border();
 		
 		var running = true;
@@ -109,8 +113,7 @@ begin
 		while running do
 		begin
 			state->load_random_piece();
-			/*if not state->try_move_piece_x(0) then begin running=false; break; end; fi;*/
-			if not state->try_move_piece_x(0) then begin break; end; fi;
+			if not state->try_move_piece_x(0) then begin running=false; break; end; fi;			
 			var falling = true;
 			while falling do
 			begin
@@ -137,7 +140,8 @@ begin
 	begin
 		var state: State;
 		
-		multiframe
+		multiframe(engine = default)
+		multiframe(engine = ( runtime_stacks:4 ))
 		begin
 			frames main_loop(&state);
 			
@@ -149,8 +153,6 @@ begin
 			end;
 			
 			on_frame_end begin end;
-			
-			runtime_stacks = 4;
 		end;
 	end;*/
 end;

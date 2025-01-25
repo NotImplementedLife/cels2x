@@ -449,7 +449,7 @@ namespace Celesta
 		}
 	};
 	
-	template<int NO_CTRLS, int STACK_SIZE = 1024>
+	template<int NO_CTRLS, int STACK_SIZE = 512>
 	struct CelsRuntime
 	{
 		static_assert(NO_CTRLS > 0);
@@ -459,11 +459,11 @@ namespace Celesta
 		ExecutionController ctrls[NO_CTRLS];
 		
 		
-		busy_bucket_t<NO_CTRLS> busy_bucket;		
+		busy_bucket_t<NO_CTRLS> busy_bucket{};
 		
 		void (*error_handler)(const char*) = [](const char*) { while(1); };
 		
-		CelsRuntime()
+		CelsRuntime(void (*error_handler)(const char*)=nullptr)
 		{
 			for(int i=0;i<NO_CTRLS;i++)
 			{
@@ -479,6 +479,9 @@ namespace Celesta
 			
 			// controller 0 (main) is always busy
 			busy_bucket.buffer[0] = 1;
+			
+			if(error_handler!=nullptr)
+				set_error_handler(error_handler);
 		}
 		
 		ExecutionController* find_free_controller()
@@ -544,6 +547,17 @@ namespace Celesta
 	#ifndef CELS_ERROR_HANDLER
 		#define CELS_ERROR_HANDLER ([](const char*){while(1);})
 	#endif
+	#ifndef CELS_RUNTIME_STACKS_COUNT
+		#define CELS_RUNTIME_STACKS_COUNT 4
+	#endif
+	#ifndef CELS_RUNTIME_STACK_SIZE
+		#define CELS_RUNTIME_STACK_SIZE 512
+	#endif
+	
+	namespace Defaults
+	{	
+		Celesta::CelsRuntime<CELS_RUNTIME_STACKS_COUNT, CELS_RUNTIME_STACK_SIZE> cels_runtime{CELS_ERROR_HANDLER};
+	}
 
 
 #endif // CELS_DEFAULTS
