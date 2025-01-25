@@ -856,7 +856,7 @@ class CelsEnv2Cpp:
                 f"for(bool {running_id}=true; {running_id};)\n",
                 "{\n",
                 inner_snippet.indent(),
-                "}\n",
+                "\n}\n",
             ]
             snippet += f"{ctrl_id}->pop();\n"
             
